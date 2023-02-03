@@ -21,3 +21,4 @@ rustflags = ["-Zshare-generics=n"]
 [dependencies]
 bevy = "0.9.1"
 bevy_editor_pls = "0.2.0"
+rand = "0.8.5"
