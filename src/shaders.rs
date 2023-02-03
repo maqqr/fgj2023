@@ -1,5 +1,5 @@
 use bevy::{
-    prelude::{Material, Vec3},
+    prelude::{Material, Vec3, Color},
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
@@ -24,5 +24,11 @@ impl Material for CustomMaterial {
     }
     fn fragment_shader() -> ShaderRef {
         "shaders/custom.wgsl".into()
+    }
+}
+
+impl From<Color> for CustomMaterial {
+    fn from(value: Color) -> Self {
+        Self { time: 0.0, bending: 0.1, cam_position: Vec3::ZERO, color: Vec3::new(value.r(), value.g(), value.b()) }
     }
 }

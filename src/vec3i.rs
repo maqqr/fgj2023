@@ -1,8 +1,15 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign, Neg};
 
+use bevy::prelude::{Vec3, Transform};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct Vec3i(i64, i64, i64);
 
 impl Vec3i {
+    pub fn new(x: i64, y: i64, z: i64) -> Self {
+        Self(x, y, z)
+    }
+
     #[inline]
     pub fn x(self) -> i64 {
         self.0
@@ -88,5 +95,19 @@ impl Neg for Vec3i {
     #[inline]
     fn neg(self) -> Self {
         Self(-self.0, -self.1, -self.2)
+    }
+}
+
+impl From<Vec3i> for Vec3 {
+    #[inline]
+    fn from(t: Vec3i) -> Self {
+        Self::new(t.0 as f32, t.1 as f32, t.2 as f32)
+    }
+}
+
+impl From<Vec3i> for Transform {
+    #[inline]
+    fn from(t: Vec3i) -> Self {
+        Self::from_xyz(t.0 as f32, t.1 as f32, t.2 as f32)
     }
 }
