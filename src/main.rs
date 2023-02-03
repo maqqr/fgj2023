@@ -1,7 +1,8 @@
 use core::f32;
+use std::thread::Thread;
 
 use bevy::prelude::*;
-use rand::prelude::*;
+use rand::{prelude::*, distributions::uniform::SampleUniform};
 
 const LEVEL_MIN: f32 = -300.0;
 const LEVEL_MAX: f32 = 300.0;
@@ -33,7 +34,8 @@ impl RootResource {
 struct Root
 {
     id: i64,
-    resource: RootResource
+    resource: RootResource,
+    mineable: i32
 }
 
 fn main() {
@@ -47,6 +49,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>,) {
+    let mut rng = rand::thread_rng();
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 50.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -73,32 +76,42 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
     let bark = materials.add(Color::CRIMSON.into());
     let wood = materials.add(Color::BEIGE.into());
 
-    for i in 0..100 {
-        let root_resource = random_resource();
+    for i in 0..1000 {
+        let root_resource = random_resource(&mut rng);
 
         let cloned_material = match root_resource {
             RootResource::Sap => sap.clone(),
             RootResource::Bark => bark.clone(),
             RootResource::Wood => wood.clone(),
         };
-        let location = random_location(LEVEL_MIN, LEVEL_MAX);
+        let location = random_location(&mut rng, LEVEL_MIN, LEVEL_MAX);
         //Cloning everything multiple times is SUPER optimized
-        spawn_root(&mut commands, &cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(location));
+        spawn_root(&mut commands, &cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(location), &mut rng);
 
-        root_around(0.5, location, &mut commands, &cube_mesh, &cloned_material, i, &root_resource);
+        root_around(0.3, 0.05, location, &mut commands, &cube_mesh, &cloned_material, i, &root_resource, &mut rng);
     }
 }
 
-fn root_around(root_chance: f32, location: Vec3, commands: &mut Commands, cube_mesh: &Handle<Mesh>, cloned_material: &Handle<StandardMaterial>, i: i64, root_resource: &RootResource) {
+fn root_around(
+    root_chance: f32,
+    root_growth: f32,
+    location: Vec3,
+    commands: &mut Commands,
+    cube_mesh: &Handle<Mesh>,
+    cloned_material: &Handle<StandardMaterial>,
+    i: i64,
+    root_resource: &RootResource,
+    rng: &mut ThreadRng
+) {
     for x in -1..1 {
         for z in -1..1 {
             if x == 0 && z == 0 {
                 return;
             }
-            if generate_random_number() > root_chance {
+            if generate_random_number(rng) > root_chance {
                 let next = location + Vec3::new(x as f32, 0.0, z as f32);
-                spawn_root(commands, cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(next));
-                root_around(root_chance + 0.1, location, commands, cube_mesh, &cloned_material, i, &root_resource)
+                spawn_root(commands, cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(next), rng);
+                root_around(root_chance + 0.05, root_growth, next, commands, cube_mesh, &cloned_material, i, &root_resource, rng)
             }
         }
     }
@@ -110,7 +123,8 @@ fn spawn_root(commands: &mut Commands,
     cloned_material: &Handle<StandardMaterial>,
     i: i64,
     root_resource: &RootResource,
-    transform: Transform) {
+    transform: Transform,
+    rng: &mut ThreadRng) {
     commands.spawn((
         PbrBundle {
             mesh: cube_mesh.clone(),
@@ -118,16 +132,19 @@ fn spawn_root(commands: &mut Commands,
             transform,
             ..default()
         },
-        Root { id: i, resource: root_resource.clone()},
+        Root {
+            id: i,
+            resource: root_resource.clone(),
+            mineable: generate_random_between(rng, 1, 8)},
     ));
 }
 
-fn random_location(min: f32, max: f32) -> Vec3 {
-    Vec3 { x: (generate_random_between(min, max)), y: 0.0, z: (generate_random_between(min, max)) }
+fn random_location(rng: &mut ThreadRng, min: f32, max: f32) -> Vec3 {
+    Vec3 { x: (generate_random_between(rng, min, max)), y: 0.0, z: (generate_random_between(rng, min, max)) }
 }
 
-fn random_resource() -> RootResource {
-    let rng = generate_random_number();
+fn random_resource(rng: &mut ThreadRng) -> RootResource {
+    let rng = generate_random_number(rng);
     if rng > 0.8 {
         return RootResource::Sap;
     }
@@ -137,14 +154,13 @@ fn random_resource() -> RootResource {
     RootResource::Wood
 }
 
-fn generate_random_between(min: f32, max: f32) -> f32 {
-    let mut rng = rand::thread_rng();
-    let range = min..max;
+fn generate_random_between<T> (rng: &mut ThreadRng, min: T, max: T) -> T
+where T: SampleUniform + std::cmp::PartialOrd {
+    let range = min..=max;
     rng.gen_range(range)
 }
 
-fn generate_random_number() -> f32 {
-    let mut rng = rand::thread_rng();
+fn generate_random_number(rng: &mut ThreadRng, ) -> f32 {
     rng.gen::<f32>()
 }
 
