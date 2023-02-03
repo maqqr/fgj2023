@@ -20,4 +20,3 @@ rustflags = ["-Zshare-generics=n"]
 
 [dependencies]
 bevy = "0.9.1"
-math = "0.10.0"
