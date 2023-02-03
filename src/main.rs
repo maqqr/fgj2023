@@ -1,12 +1,13 @@
 mod shaders;
 use core::f32;
-use std::thread::Thread;
 
-use bevy::prelude::*;
+
+use bevy::{prelude::*};
 use rand::{prelude::*, distributions::uniform::SampleUniform};
 
 const LEVEL_MIN: f32 = -300.0;
 const LEVEL_MAX: f32 = 300.0;
+const CAMERA_OFF_SET: Vec3 = Vec3::new(-2.0, 0.0, 5.0);
 
 #[derive(Component)]
 struct Movement{
@@ -39,6 +40,8 @@ struct Root
     mineable: i32
 }
 
+
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -62,7 +65,7 @@ fn setup(
     let mut rng = rand::thread_rng();
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 50.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0) + CAMERA_OFF_SET).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         Name::new("MainCamera"),
@@ -96,10 +99,12 @@ fn setup(
             RootResource::Wood => wood.clone(),
         };
         let location = random_location(&mut rng, LEVEL_MIN, LEVEL_MAX);
-        //Cloning everything multiple times is SUPER optimized
-        spawn_root(&mut commands, &cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(location), &mut rng);
+        let mut takenVecs = Vec::new();
 
-        root_around(0.3, 0.05, location, &mut commands, &cube_mesh, &cloned_material, i, &root_resource, &mut rng);
+        //Cloning everything multiple times is SUPER optimized
+        spawn_root(&mut commands, &cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(location), &mut rng, &mut takenVecs);
+
+        root_around(0.3, 0.05, location, &mut commands, &cube_mesh, &cloned_material, i, &root_resource, &mut rng, &mut takenVecs);
     }
 }
 
@@ -112,17 +117,23 @@ fn root_around(
     cloned_material: &Handle<StandardMaterial>,
     i: i64,
     root_resource: &RootResource,
-    rng: &mut ThreadRng
+    rng: &mut ThreadRng,
+    roots: &mut Vec<Vec3>
 ) {
-    for x in -1..1 {
-        for z in -1..1 {
+    for x in -1..=1 {
+        for z in -1..=1 {
             if x == 0 && z == 0 {
                 return;
             }
             if generate_random_number(rng) > root_chance {
                 let next = location + Vec3::new(x as f32, 0.0, z as f32);
-                spawn_root(commands, cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(next), rng);
-                root_around(root_chance + 0.05, root_growth, next, commands, cube_mesh, &cloned_material, i, &root_resource, rng)
+                for vec in roots.iter()  {
+                    if vec.x == next.x && vec.z == next.z {
+                        return;
+                    }
+                }
+                spawn_root(commands, cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(next), rng, roots);
+                root_around(root_chance + root_growth, root_growth, next, commands, cube_mesh, &cloned_material, i, &root_resource, rng, roots)
             }
         }
     }
@@ -135,8 +146,9 @@ fn spawn_root(commands: &mut Commands,
     i: i64,
     root_resource: &RootResource,
     transform: Transform,
-    rng: &mut ThreadRng) {
-    commands.spawn((
+    rng: &mut ThreadRng,
+    roots: &mut Vec<Vec3>) {
+    let id = commands.spawn((
         PbrBundle {
             mesh: cube_mesh.clone(),
             material: cloned_material.clone(),
@@ -147,7 +159,8 @@ fn spawn_root(commands: &mut Commands,
             id: i,
             resource: root_resource.clone(),
             mineable: generate_random_between(rng, 1, 8)},
-    ));
+    )).id();
+    roots.push(transform.translation);
 }
 
 fn random_location(rng: &mut ThreadRng, min: f32, max: f32) -> Vec3 {
@@ -175,8 +188,24 @@ fn generate_random_number(rng: &mut ThreadRng, ) -> f32 {
     rng.gen::<f32>()
 }
 
-fn camera_system(keyboard_input: Res<Input<KeyCode>>, time: Res<Time>, mut query: Query<(&mut Transform), With<Camera>>){
+fn camera_system(
+    keyboard_input: Res<Input<KeyCode>>,
+    time: Res<Time>,
+    mut query: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+    player_query: Query<&Transform, With<Player>>) {
+    let mut center = Vec3::default();
+    let mut count: i32 = 0;
+    for (tranform) in player_query.iter()  {
+        center += tranform.translation;
+        count += 1;
+    }
+    center = Vec3::new(center.x / count as f32, 0.0, center.z / count as f32);
+
+
+    
     for (mut transform) in query.iter_mut() {
+        center.y = transform.translation.y;
+        transform.translation = center;
         if keyboard_input.pressed(KeyCode::Z) {
             transform.translation.y -= 5.0 * time.delta_seconds();
         }
