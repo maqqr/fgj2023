@@ -1,4 +1,4 @@
-use crate::{RootResource, vec3i::Vec3i};
+use crate::{*, vec3i::Vec3i};
 use rand::{rngs::ThreadRng, distributions::uniform::SampleUniform, Rng};
 
 pub fn random_resource(rng: &mut ThreadRng) -> RootResource {

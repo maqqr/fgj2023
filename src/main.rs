@@ -10,7 +10,7 @@ use world_generation::*;
 
 const LEVEL_MIN: f32 = -300.0;
 const LEVEL_MAX: f32 = 300.0;
-const CAMERA_OFFSET: Vec3 = Vec3::new(-2.0, 0.0, 5.0);
+const INITIAL_CAMERA_OFFSET: Vec3 = Vec3::new(0.0, 11.0, 15.0);
 
 #[derive(Component)]
 struct Movement{
@@ -23,6 +23,14 @@ impl Movement {
 
 #[derive(Component)]
 struct Player;
+
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct MainCamera {
+    bend_world: bool,
+    bending: f32,
+    offset: Vec3,
+}
 
 #[derive(Clone)]
 pub enum RootResource {
@@ -52,10 +60,11 @@ fn setup(
     let mut rng = rand::thread_rng();
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0) + CAMERA_OFFSET).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_translation(INITIAL_CAMERA_OFFSET).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         Name::new("MainCamera"),
+        MainCamera { bend_world: true, bending: shaders::DEFAULT_BENDING, offset: INITIAL_CAMERA_OFFSET },
     ));
 
     let cube_material = custom_materials.add(shaders::CustomMaterial { time: 0.0, bending: 0.1, cam_position: Vec3::new(-2.0, 2.5, 5.0), color: Vec3::new(1.0, 0.0, 0.0) } );
@@ -68,7 +77,7 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(1.0, 1.0, 1.0)),
             ..default()
         },
-        Movement::new(1.0),
+        Movement::new(10.0),
         Player,
         Name::new("Cube"),
     ));
@@ -96,7 +105,7 @@ fn setup(
 fn camera_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+    mut query: Query<(&mut Transform, &mut MainCamera), Without<Player>>,
     player_query: Query<&Transform, With<Player>>,
 ) {
     let mut center = Vec3::default();
@@ -107,14 +116,15 @@ fn camera_system(
     }
     center = Vec3::new(center.x / count as f32, 0.0, center.z / count as f32);
 
-    for mut transform in query.iter_mut() {
-        center.y = transform.translation.y;
-        transform.translation = center;
+    for (mut transform, mut camera) in query.iter_mut() {
+        transform.translation = center + camera.offset;
+
+        let dir = (center - transform.translation).normalize();
         if keyboard_input.pressed(KeyCode::Z) {
-            transform.translation.y -= 5.0 * time.delta_seconds();
+            camera.offset += dir * 5.0 * time.delta_seconds();
         }
         if keyboard_input.pressed(KeyCode::X) {
-            transform.translation.y += 5.0 * time.delta_seconds();
+            camera.offset -= dir * 5.0 * time.delta_seconds();
         }
     }
 }
@@ -147,10 +157,12 @@ fn main() {
         .add_plugin(bevy_editor_pls::EditorPlugin)
         .add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
+        .add_plugin(shaders::ShaderPlugin)
         .insert_resource(ClearColor(Color::GRAY))
         .insert_resource(BlockMap::default())
         .add_startup_system(setup)
         .add_system(movement_system)
         .add_system(camera_system)
+        .register_type::<MainCamera>() // Only needed for in-game inspector
         .run();
 }
