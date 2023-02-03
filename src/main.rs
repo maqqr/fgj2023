@@ -1,5 +1,3 @@
-mod shaders;
-
 use bevy::prelude::*;
 
 fn main() {
