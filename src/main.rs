@@ -1,8 +1,11 @@
+mod shaders;
 use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(MaterialPlugin::<shaders::CustomMaterial>::default())
+        .add_plugin(bevy_editor_pls::EditorPlugin)
         .add_startup_system(setup)
         .add_system(movement_system)
         .run();
@@ -11,7 +14,12 @@ fn main() {
 #[derive(Component)]
 struct Movement;
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>,) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut custom_materials: ResMut<Assets<shaders::CustomMaterial>>,
+) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -20,11 +28,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
         Name::new("MainCamera"),
     ));
 
-    let cube_material = materials.add(Color::rgb(1.0, 0.0, 0.0).into());
+    let cube_material = custom_materials.add(shaders::CustomMaterial { time: 0.0, bending: 0.1, cam_position: Vec3::new(-2.0, 2.5, 5.0), color: Vec3::new(0.0, 1.0, 0.0) } );
     let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
 
     commands.spawn((
-        PbrBundle {
+        MaterialMeshBundle  {
             mesh: cube_mesh.clone(),
             material: cube_material.clone(),
             transform: Transform::from_translation(Vec3::new(1.0, 1.0, 1.0)),
