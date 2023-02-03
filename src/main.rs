@@ -30,7 +30,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn movement_system(keyboard_input: Res<Input<KeyCode>>, mut query: Query<(&mut Transform)>) {
+fn movement_system(keyboard_input: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<Movement>>) {
     for (mut transform) in query.iter_mut() {
         if keyboard_input.pressed(KeyCode::Up) {
             transform.translation.y += 1.0;
