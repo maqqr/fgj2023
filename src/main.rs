@@ -1,16 +1,16 @@
 mod shaders;
-use core::f32;
-use std::thread::Thread;
+mod vec3i;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 use rand::{prelude::*, distributions::uniform::SampleUniform};
+use vec3i::Vec3i;
 
 const LEVEL_MIN: f32 = -300.0;
 const LEVEL_MAX: f32 = 300.0;
 
 #[derive(Component)]
 struct Movement{
-    speed: f32
+    speed: f32,
 }
 
 impl Movement {
@@ -24,7 +24,7 @@ struct Player;
 enum RootResource {
     Sap,
     Bark,
-    Wood
+    Wood,
 }
 
 impl RootResource {
@@ -32,11 +32,15 @@ impl RootResource {
 }
 
 #[derive(Component)]
-struct Root
-{
+struct Root {
     id: i64,
     resource: RootResource,
-    mineable: i32
+    mineable: i32,
+}
+
+#[derive(Resource, Default)]
+struct BlockMap {
+    entities: HashMap<Vec3i, Entity>,
 }
 
 fn main() {
@@ -47,6 +51,7 @@ fn main() {
         //.add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         //.add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
         .insert_resource(ClearColor(Color::GREEN))
+        .insert_resource(BlockMap::default())
         .add_startup_system(setup)
         .add_system(movement_system)
         .add_system(camera_system)
@@ -58,6 +63,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut custom_materials: ResMut<Assets<shaders::CustomMaterial>>,
+    mut blockmap: ResMut<BlockMap>,
 ) {
     let mut rng = rand::thread_rng();
     commands.spawn((
@@ -99,7 +105,7 @@ fn setup(
         //Cloning everything multiple times is SUPER optimized
         spawn_root(&mut commands, &cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(location), &mut rng);
 
-        root_around(0.3, 0.05, location, &mut commands, &cube_mesh, &cloned_material, i, &root_resource, &mut rng);
+        root_around(0.3, 0.05, location, &mut commands, &cube_mesh, &cloned_material, i, &root_resource, &mut rng, &mut blockmap);
     }
 }
 
@@ -112,7 +118,8 @@ fn root_around(
     cloned_material: &Handle<StandardMaterial>,
     i: i64,
     root_resource: &RootResource,
-    rng: &mut ThreadRng
+    rng: &mut ThreadRng,
+    blockmap: &mut BlockMap,
 ) {
     for x in -1..1 {
         for z in -1..1 {
@@ -121,8 +128,8 @@ fn root_around(
             }
             if generate_random_number(rng) > root_chance {
                 let next = location + Vec3::new(x as f32, 0.0, z as f32);
-                spawn_root(commands, cube_mesh, &cloned_material, i, &root_resource, Transform::from_translation(next), rng);
-                root_around(root_chance + 0.05, root_growth, next, commands, cube_mesh, &cloned_material, i, &root_resource, rng)
+                spawn_root(commands, cube_mesh, cloned_material, i, root_resource, Transform::from_translation(next), rng);
+                root_around(root_chance + 0.05, root_growth, next, commands, cube_mesh, cloned_material, i, root_resource, rng, blockmap)
             }
         }
     }
