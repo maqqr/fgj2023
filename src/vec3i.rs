@@ -111,3 +111,10 @@ impl From<Vec3i> for Transform {
         Self::from_xyz(t.0 as f32, t.1 as f32, t.2 as f32)
     }
 }
+
+impl From<(i64, i64, i64)> for Vec3i {
+    #[inline]
+    fn from((x, y, z): (i64, i64, i64)) -> Self {
+        Self::new(x, y, z)
+    }
+}

@@ -1,7 +1,7 @@
 use bevy::{prelude::{KeyCode, Vec3}, utils::HashMap};
 
-pub const LEVEL_MIN: f32 = -300.0;
-pub const LEVEL_MAX: f32 = 300.0;
+pub const LEVEL_MIN: f32 = -100.0;
+pub const LEVEL_MAX: f32 = 100.0;
 
 pub const INITIAL_CAMERA_OFFSET: Vec3 = Vec3::new(0.0, 11.0, 15.0);
 

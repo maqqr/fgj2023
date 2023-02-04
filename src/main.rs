@@ -9,6 +9,7 @@ mod constants;
 
 use bevy::{prelude::*, utils::HashMap, core_pipeline::bloom::BloomSettings};
 use bevy_rapier3d::prelude::*;
+use shaders::CustomMaterial;
 use vec3i::*;
 use utils::*;
 use world_generation::*;
@@ -34,7 +35,7 @@ pub struct MainCamera {
     offset: Vec3,
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum RootResource {
     Sap,
     Bark,
@@ -52,6 +53,9 @@ pub struct Root {
 pub struct BlockMap {
     entities: HashMap<Vec3i, Entity>,
 }
+
+#[derive(Component)]
+pub struct BlockPosition(Vec3i);
 
 fn setup(
     mut commands: Commands,
@@ -95,28 +99,27 @@ fn setup(
 
     // Create invisible ground for debugging purposes
     commands.spawn((
-        TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)),
-        Collider::cuboid(100.0, 0.1, 100.0),
+        TransformBundle::from(Transform::from_xyz(0.0, -1.0, 0.0)),
+        Collider::cuboid(100.0, 0.5, 100.0),
     ));
 
-    let sap = custom_materials.add(Color::GREEN.into());
-    let bark = custom_materials.add(Color::CRIMSON.into());
-    let wood = custom_materials.add(Color::BEIGE.into());
+    let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
+        (RootResource::Sap, custom_materials.add(Color::GREEN.into())),
+        (RootResource::Bark, custom_materials.add(Color::CRIMSON.into())),
+        (RootResource::Wood, custom_materials.add(Color::BEIGE.into())),
+    ].into_iter().collect();
 
+    let ground_material = &custom_materials.add(Color::DARK_GRAY.into());
+
+    let mut gen = WorldGenerator { cube_mesh: &cube_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap };
     for i in 0..1000 {
-        let root_resource = random_resource(&mut rng);
+        let root_resource = random_resource(gen.rng);
 
-        let cloned_material = match root_resource {
-            RootResource::Sap => sap.clone(),
-            RootResource::Bark => bark.clone(),
-            RootResource::Wood => wood.clone(),
-        };
-        let location = random_location(&mut rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
-
-        let mut gen = RootGenerator { i, cube_mesh: &cube_mesh, cloned_material: &cloned_material, root_resource: &root_resource, rng: &mut rng, blockmap: &mut blockmap };
-        gen.spawn_root(&location, &mut commands);
-        gen.root_around(&location, 0.3, 0.05, &mut commands);
+        let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
+        gen.spawn_root(i, &location, root_resource, &mut commands);
+        gen.root_around(i, &location, root_resource, 0.3, 0.05, &mut commands);
     }
+    gen.make_ground_plane(&mut commands);
 }
 
 fn camera_system(
