@@ -118,6 +118,8 @@ fn setup(
         cam_position: Vec3::new(-2.0, 2.5, 5.0),
         color: Vec3::new(1.0, 1.0, 1.0),
         texture: asset_server.load("up.png"),
+        player_position: Vec3::ZERO,
+        viewport_size: Vec2::ZERO,
     });
     commands.spawn(
         TextBundle::from_section(
@@ -195,6 +197,8 @@ fn setup(
         cam_position: Vec3::new(-2.0, 2.5, 5.0),
         color: Vec3::new(1.0, 1.0, 1.0),
         texture: asset_server.load("bush.png"),
+        player_position: Vec3::ZERO,
+        viewport_size: Vec2::ZERO,
     });
     for _ in 0..150 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
