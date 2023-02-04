@@ -143,7 +143,7 @@ fn setup(
             bend_world: true,
             bending: DEFAULT_BENDING,
             offset: INITIAL_CAMERA_OFFSET,
-            shake_intensity: 2.0,
+            shake_intensity: 10.0,
         },
         BloomSettings {
             threshold: 0.6,
@@ -336,7 +336,7 @@ fn camera_system(
 
     for (mut transform, mut camera) in query.iter_mut() {
 
-        let shake = generate_random_unit_vec(&mut rng);
+        let shake = generate_random_unit_vec(&mut rng) * camera.shake_intensity;
 
         transform.translation = center + camera.offset + shake;
 
@@ -439,6 +439,7 @@ fn damage_system(
     mut query: Query<&mut Health>,
     root_query: Query<(&Root, &BlockPosition)>,
     mut player_query: Query<&mut Player>,
+    mut camera_query: Query<&mut MainCamera>,
     mut blockmap: ResMut<BlockMap>,
     audio_handles: Res<AudioHandles>,
     audio: Res<Audio>,
@@ -460,6 +461,7 @@ fn damage_system(
 
             if health.health <= 0 {
                 commands.entity(ev.target_entity).despawn();
+                camera_query.single_mut().shake_intensity = 0.5;
 
                 if let Ok((root, block_pos)) = root_tuple {
                     blockmap.entities.remove_entry(&block_pos.0);
@@ -623,7 +625,7 @@ fn animation_system(
 
 fn camera_shake_system(mut query: Query<&mut MainCamera>, time: Res<Time>) {
     for mut camera in query.iter_mut() {
-        camera.shake_intensity = -camera.shake_intensity * 0.95 * time.delta_seconds();
+        camera.shake_intensity += -camera.shake_intensity * 5.0 * time.delta_seconds();
     }
 }
 
