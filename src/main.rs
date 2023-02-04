@@ -65,7 +65,8 @@ pub struct BlockMap {
     entities: HashMap<Vec3i, Entity>,
 }
 
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component)]
 pub struct BlockPosition(Vec3i);
 
 fn setup(
@@ -244,7 +245,7 @@ fn collision_system(
                     }
                 }
             }
-        }   
+        }
     }
 }
 
@@ -254,19 +255,20 @@ fn collapse_trunks_system (
 ) {
     for (mut blocks, mut transform) in query.iter_mut() {
         let old = blocks.0;
-        let new = Vec3i::new(blocks.0.x(), blocks.0.y() - 1, blocks.0.z());
-        if !blockmap.entities.contains_key(&new) {
-            let y = blocks.0.y();
-            blocks.0.set_y(y - 1);
-            transform.translation = blocks.0.into();
+        let new = blocks.0 + (0, -1, 0).into();
+        if old.y() > 0 && !blockmap.entities.contains_key(&new) {
+            blocks.0 = new;
+            transform.translation = new.into();
 
-            let entity = blockmap.entities.get(&old);
+            let entity = blockmap.entities.get(&old).copied();
             match entity {
                 Some(entity) => {
                     blockmap.entities.remove_entry(&old);
-                    blockmap.entities.insert(new, *entity);
+                    blockmap.entities.insert(new, entity);
                 }
-                None => panic!("Wheres the freaking entity?!?"),
+                None => {
+                    panic!("Wheres the freaking entity?!?");
+                },
             }
 
         }
@@ -302,5 +304,6 @@ fn main() {
         .add_system(camera_system)
         .add_system(ui_count_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
+        .register_type::<BlockPosition>()
         .run();
 }

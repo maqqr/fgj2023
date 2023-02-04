@@ -1,8 +1,8 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign, Neg};
 
-use bevy::prelude::{Vec3, Transform};
+use bevy::{prelude::{Vec3, Transform}, reflect::Reflect};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Default, Reflect)]
 pub struct Vec3i(i64, i64, i64);
 
 impl Vec3i {
@@ -17,12 +17,12 @@ impl Vec3i {
 
     #[inline]
     pub fn y(self) -> i64 {
-        self.0
+        self.1
     }
 
     #[inline]
     pub fn z(self) -> i64 {
-        self.0
+        self.2
     }
 
     #[inline]
@@ -47,12 +47,12 @@ impl Vec3i {
 
     #[inline]
     pub fn set_y(&mut self, y: i64) {
-        self.0 = y;
+        self.1 = y;
     }
 
     #[inline]
     pub fn set_z(&mut self, z: i64) {
-        self.0 = z;
+        self.2 = z;
     }
 }
 
