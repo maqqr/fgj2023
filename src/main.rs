@@ -244,9 +244,24 @@ fn camera_system(
 fn movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut ExternalImpulse, &mut Direction, &Movement), With<Player>>,
+    mut query: Query<(&mut ExternalImpulse, &mut Direction, &Movement, &Transform), With<Player>>,
+    not_player_query: Query<Entity, Without<Player>>,
+    rapier_context: Res<RapierContext>,
 ) {
-    for (mut external, mut dir, movement) in query.iter_mut() {
+    let ray_hit = |pos, dir| {
+        let mut hit = false;
+        rapier_context.intersections_with_ray(pos, dir, 1.0, false, QueryFilter::new(),
+            |entity, _| {
+                if not_player_query.get(entity).is_ok() {
+                    hit = true;
+                    return false;
+                }
+                true // true = continue searching
+            });
+        hit
+    };
+
+    for (mut external, mut dir, movement, transform) in query.iter_mut() {
         // Sum vectors from directions that are pressed
         let movement_dir = KEYS
             .iter()
@@ -256,8 +271,12 @@ fn movement_system(
         if movement_dir != Vec3::ZERO {
             dir.0 = movement_dir;
         }
-
         external.impulse = movement_dir * movement.speed * time.delta_seconds();
+
+        // Jumping
+        if keyboard_input.just_pressed(KeyCode::Space) && ray_hit(transform.translation, (0.0, -1.0, 0.0).into()) {
+            external.impulse += Vec3::new(0.0, 4.0, 0.0);
+        }
     }
 
     // TODO: add jumping for player
