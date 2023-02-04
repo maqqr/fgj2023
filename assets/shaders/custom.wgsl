@@ -80,7 +80,7 @@ struct FragmentInput {
 
 fn fog_factor(d: f32) -> f32 {
     var fog_max = 9.0;
-    var fog_min = 2.0;
+    var fog_min = 0.0;
     if (d>=fog_max) {
         return 1.0;
     }
@@ -88,6 +88,14 @@ fn fog_factor(d: f32) -> f32 {
         return 0.0;
     }
     return 1.0 - (fog_max - d) / (fog_max - fog_min);
+}
+
+fn vignette(viewuv: vec2<f32>) -> f32 {
+    var position = viewuv - vec2<f32>(0.5, 0.5);
+    var dist = length(position);
+    var radius = 0.7;
+    var softness = 0.35;
+    return smoothstep(radius, radius - softness, dist);
 }
 
 @fragment
@@ -114,10 +122,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     diff.g *= texCol.g;
     diff.b *= texCol.b;
 
-    //var zz = -4.938 * viewport.x * viewport.x + 4.938 * viewport.x - 0.2346;
-
-    var result = mix(ambient + diff, vec3<f32>(0.02, 0.02, 0.01), fog);
-    //var result = vec3<f32>(zz, 0.0, 0.0);
+    var vig = vignette(viewport.xy);
+    var result = mix(ambient + diff, vec3<f32>(0.02, 0.02, 0.01), fog) * vig;
 
     return vec4(result, 1.0);
 

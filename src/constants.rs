@@ -18,5 +18,9 @@ lazy_static!{
         (KeyCode::Down, (0.0, 0.0, 1.0).into()),
         (KeyCode::Left, (-1.0, 0.0, 0.0).into()),
         (KeyCode::Right, (1.0, 0.0, 0.0).into()),
+        (KeyCode::W, (0.0, 0.0, -1.0).into()),
+        (KeyCode::S, (0.0, 0.0, 1.0).into()),
+        (KeyCode::A, (-1.0, 0.0, 0.0).into()),
+        (KeyCode::D, (1.0, 0.0, 0.0).into()),
     ].iter().copied().collect();
 }

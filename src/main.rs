@@ -41,6 +41,10 @@ struct Player {
     sap: i32,
     bark: i32,
     wood: i32,
+    left_img: Handle<Image>,
+    right_img: Handle<Image>,
+    up_img: Handle<Image>,
+    down_img: Handle<Image>,
 }
 
 #[derive(Component)]
@@ -128,7 +132,7 @@ fn setup(
         BloomSettings {
             threshold: 0.6,
             knee: 0.2,
-            intensity: 0.15,
+            intensity: 0.3,
             ..default()
         },
         UiCameraConfig { show_ui: true },
@@ -187,7 +191,13 @@ fn setup(
             ..default()
         },
         Movement::new(30.0),
-        Player::default(),
+        Player {
+            left_img: asset_server.load("right.png"),
+            right_img: asset_server.load("left.png"),
+            up_img: asset_server.load("up.png"),
+            down_img: asset_server.load("down.png"),
+            ..default()
+        },
         Name::new("Cube"),
         RigidBody::Dynamic,
         Collider::ball(0.5),
@@ -201,7 +211,7 @@ fn setup(
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
         (
             RootResource::Sap,
-            custom_materials.add(CustomMaterial::new(Color::rgb(0.7, 0.7, 5.0), &sap_tex)),
+            custom_materials.add(CustomMaterial::new(Color::rgb(0.7, 0.7, 7.0), &sap_tex)),
         ),
         (
             RootResource::Bark,
@@ -252,7 +262,7 @@ fn setup(
         player_position: Vec3::ZERO,
         viewport_size: Vec2::ZERO,
     });
-    for _ in 0..150 {
+    for _ in 0..350 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
         commands.spawn((
             MaterialMeshBundle {
@@ -306,8 +316,9 @@ fn camera_system(
 fn movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut ExternalImpulse, &mut Direction, &Movement, &Transform), With<Player>>,
+    mut query: Query<(&mut Handle<CustomMaterial>, &mut ExternalImpulse, &mut Direction, &Movement, &Transform, &Player)>,
     not_player_query: Query<Entity, Without<Player>>,
+    mut custom_materials: ResMut<Assets<CustomMaterial>>,
     rapier_context: Res<RapierContext>,
 ) {
     let ray_hit = |pos, dir| {
@@ -329,12 +340,13 @@ fn movement_system(
         hit
     };
 
-    for (mut external, mut dir, movement, transform) in query.iter_mut() {
+    for (mat, mut external, mut dir, movement, transform, player) in query.iter_mut() {
         // Sum vectors from directions that are pressed
         let movement_dir = KEYS
             .iter()
             .filter_map(|(key, v)| keyboard_input.pressed(*key).then_some(v))
-            .sum::<Vec3>();
+            .sum::<Vec3>()
+            .normalize_or_zero();
 
         if movement_dir != Vec3::ZERO {
             dir.0 = movement_dir;
@@ -347,9 +359,23 @@ fn movement_system(
         {
             external.impulse += Vec3::new(0.0, 4.0, 0.0);
         }
-    }
 
-    // TODO: add jumping for player
+        // Sprite change
+        if let Some(mat) = custom_materials.get_mut(&mat) {
+            if movement_dir == (0.0, 0.0, -1.0).into() {
+                mat.texture = player.up_img.clone();
+            }
+            if movement_dir == (0.0, 0.0, 1.0).into() {
+                mat.texture = player.down_img.clone();
+            }
+            if movement_dir == (-1.0, 0.0, 0.0).into() {
+                mat.texture = player.left_img.clone();
+            }
+            if movement_dir == (1.0, 0.0, 0.0).into() {
+                mat.texture = player.right_img.clone();
+            }
+        }
+    }
 }
 
 fn custom_damping_system(
@@ -515,7 +541,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(shaders::ShaderPlugin)
         .add_event::<DamageEvent>()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(Color::rgb(27.0 / 255.0, 28.0 / 255.0, 17.0 / 255.0)))
         .insert_resource(BlockMap::default())
         .insert_resource(AudioHandles::default())
         .add_startup_system(setup)
