@@ -27,6 +27,9 @@ impl Movement {
 }
 
 #[derive(Component, Default)]
+struct Direction(Vec3);
+
+#[derive(Component, Default)]
 struct Player{
     sap: i32,
     bark: i32,
@@ -151,6 +154,7 @@ fn setup(
         Velocity::default(),
         CustomDamping(0.01), // Smaller value = stronger effect
         LockedAxes::ROTATION_LOCKED,
+        Direction::default(),
     ));
 
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
@@ -234,14 +238,18 @@ fn camera_system(
 fn movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut ExternalImpulse, &Movement), With<Player>>,
+    mut query: Query<(&mut ExternalImpulse, &mut Direction, &Movement), With<Player>>,
 ) {
-    for (mut external, movement) in query.iter_mut() {
+    for (mut external, mut dir, movement) in query.iter_mut() {
         // Sum vectors from directions that are pressed
         let movement_dir = KEYS
             .iter()
             .filter_map(|(key, v)| keyboard_input.pressed(*key).then_some(v))
             .sum::<Vec3>();
+
+        if movement_dir != Vec3::ZERO {
+            dir.0 = movement_dir;
+        }
 
         external.impulse = movement_dir * movement.speed * time.delta_seconds();
     }
@@ -275,7 +283,7 @@ fn collision_system(
                 if health.health <= 0 {
                     blockmap.entities.remove_entry(&block_position.0);
                     commands.entity(*second).despawn();
-                    
+
                     if let Ok(mut player) = player_query.get_mut(*first) {
                         match root.resource {
                             RootResource::Sap => player.sap += root.mineable,
@@ -316,12 +324,33 @@ fn collapse_trunks_system (
 }
 
 fn ui_count_system (
-    mut query: Query<&mut Text>, 
+    mut query: Query<&mut Text>,
     player_query: Query<&Player, Changed<Player>>,
 ) {
     for player in &player_query {
         for mut text in query.iter_mut() {
             text.sections.first_mut().unwrap().value = format_ui_text(player.sap, player.bark, player.wood)
+        }
+    }
+}
+
+fn player_attack_system(
+    query: Query<(&Transform, &Direction), With<Player>>,
+    rapier_context: Res<RapierContext>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::C) {
+        for (player_transform, dir) in query.iter() {
+            let ray_pos = player_transform.translation;
+            let ray_dir = dir.0;
+            rapier_context.intersections_with_ray(ray_pos, ray_dir, 1.0, false, QueryFilter::new(),
+                |entity, intersection| {
+                    // Callback called on each collider hit by the ray.
+                    let hit_point = intersection.point;
+                    let hit_normal = intersection.normal;
+                    println!("Entity {:?} hit at point {} with normal {}", entity, hit_point, hit_normal);
+                    true // Return false instead if we want to stop searching for other hits.
+                });
         }
     }
 }
@@ -344,6 +373,7 @@ fn main() {
         .add_system(camera_system)
         .add_system(ui_count_system)
         .add_system(custom_damping_system)
+        .add_system(player_attack_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .register_type::<BlockPosition>()
         .run();
