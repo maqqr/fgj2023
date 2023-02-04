@@ -33,6 +33,9 @@ struct Player{
     wood: i32,
 }
 
+#[derive(Component)]
+struct CustomDamping(f32);
+
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct MainCamera {
@@ -144,6 +147,9 @@ fn setup(
         RigidBody::Dynamic,
         Collider::ball(0.5),
         ExternalImpulse::default(),
+        Velocity::default(),
+        CustomDamping(0.01), // Smaller value = stronger effect
+        LockedAxes::ROTATION_LOCKED,
     ));
 
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
@@ -219,6 +225,18 @@ fn movement_system(
     }
 
     // TODO: add jumping for player
+}
+
+fn custom_damping_system(
+    mut query: Query<(&mut Velocity, &ExternalImpulse, &CustomDamping)>,
+    time: Res<Time>,
+) {
+    for (mut vel, external, damping) in query.iter_mut() {
+        if external.impulse == Vec3::ZERO {
+            vel.linvel.x *= f32::powf(damping.0, time.delta_seconds());
+            vel.linvel.z *= f32::powf(damping.0, time.delta_seconds());
+        }
+    }
 }
 
 fn collision_system(
@@ -303,6 +321,7 @@ fn main() {
         .add_system(collision_system)
         .add_system(camera_system)
         .add_system(ui_count_system)
+        .add_system(custom_damping_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .register_type::<BlockPosition>()
         .run();
