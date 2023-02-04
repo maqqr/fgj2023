@@ -25,3 +25,10 @@ where T: SampleUniform + std::cmp::PartialOrd {
 pub fn generate_random_number(rng: &mut ThreadRng, ) -> f32 {
     rng.gen::<f32>()
 }
+
+pub fn generate_random_unit_vec(rng: &mut ThreadRng, ) -> Vec3 {
+    let x = generate_random_between(rng, -1.0, 1.0);
+    let y = generate_random_between(rng, -1.0, 1.0);
+    let z = generate_random_between(rng, -1.0, 1.0);
+    Vec3::new(x, y, z).normalize_or_zero()
+}

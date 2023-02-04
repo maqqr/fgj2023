@@ -18,6 +18,7 @@ use bevy::{
 };
 use bevy_rapier3d::prelude::*;
 use constants::*;
+use rand::rngs::ThreadRng;
 use shaders::CustomMaterial;
 use utils::*;
 use vec3i::*;
@@ -65,6 +66,7 @@ pub struct MainCamera {
     bend_world: bool,
     bending: f32,
     offset: Vec3,
+    shake_intensity: f32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -142,6 +144,7 @@ fn setup(
             bend_world: true,
             bending: DEFAULT_BENDING,
             offset: INITIAL_CAMERA_OFFSET,
+            shake_intensity: 2.0,
         },
         BloomSettings {
             threshold: 0.6,
@@ -318,6 +321,8 @@ fn camera_system(
     mut query: Query<(&mut Transform, &mut MainCamera), Without<Player>>,
     player_query: Query<&Transform, With<Player>>,
 ) {
+    let mut rng = rand::thread_rng();
+
     let mut center = Vec3::default();
     let mut count: i32 = 0;
     for tranform in player_query.iter() {
@@ -331,7 +336,10 @@ fn camera_system(
     );
 
     for (mut transform, mut camera) in query.iter_mut() {
-        transform.translation = center + camera.offset;
+
+        let shake = generate_random_unit_vec(&mut rng);
+
+        transform.translation = center + camera.offset + shake;
 
         let dir = (center - transform.translation).normalize();
         if keyboard_input.pressed(KeyCode::Z) {
@@ -609,6 +617,12 @@ fn animation_system(
     }
 }
 
+fn camera_shake_system(mut query: Query<&mut MainCamera>, time: Res<Time>) {
+    for mut camera in query.iter_mut() {
+        camera.shake_intensity = -camera.shake_intensity * 0.95 * time.delta_seconds();
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -633,6 +647,7 @@ fn main() {
         .add_system(player_attack_system)
         .add_system(damage_system)
         .add_system(animation_system)
+        .add_system(camera_shake_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .register_type::<BlockPosition>()
         .run();
