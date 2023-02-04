@@ -1,36 +1,43 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod shaders;
-mod vec3i;
-mod utils;
-mod world_generation;
 mod constants;
+mod shaders;
+mod utils;
+mod vec3i;
+mod world_generation;
 
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, utils::HashMap, core_pipeline::bloom::BloomSettings};
+use bevy::{
+    audio::{self, Source},
+    core_pipeline::bloom::BloomSettings,
+    prelude::*,
+    utils::HashMap,
+};
 use bevy_rapier3d::prelude::*;
-use shaders::CustomMaterial;
-use vec3i::*;
-use utils::*;
-use world_generation::*;
 use constants::*;
+use shaders::CustomMaterial;
+use utils::*;
+use vec3i::*;
+use world_generation::*;
 
 #[derive(Component)]
-struct Movement{
+struct Movement {
     speed: f32,
 }
 
 impl Movement {
-    fn new(speed: f32) -> Self { Self { speed } }
+    fn new(speed: f32) -> Self {
+        Self { speed }
+    }
 }
 
 #[derive(Component, Default)]
 struct Direction(Vec3);
 
 #[derive(Component, Default)]
-struct Player{
+struct Player {
     sap: i32,
     bark: i32,
     wood: i32,
@@ -63,7 +70,7 @@ pub struct Root {
 
 #[derive(Component)]
 pub struct Health {
-    health: i32
+    health: i32,
 }
 
 struct DamageEvent {
@@ -77,6 +84,13 @@ pub struct BlockMap {
     entities: HashMap<Vec3i, Entity>,
 }
 
+#[derive(Resource, Default)]
+pub struct AudioHandles {
+    sap: Handle<AudioSource>,
+    bark: Handle<AudioSource>,
+    wood: Handle<AudioSource>,
+}
+
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct BlockPosition(Vec3i);
@@ -87,6 +101,7 @@ fn setup(
     mut custom_materials: ResMut<Assets<shaders::CustomMaterial>>,
     mut blockmap: ResMut<BlockMap>,
     asset_server: Res<AssetServer>,
+    mut audioHandles: ResMut<AudioHandles>,
 ) {
     let mut rng = rand::thread_rng();
     commands.spawn((
@@ -95,7 +110,8 @@ fn setup(
                 hdr: true,
                 ..default()
             },
-            transform: Transform::from_translation(INITIAL_CAMERA_OFFSET).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_translation(INITIAL_CAMERA_OFFSET)
+                .looking_at(Vec3::ZERO, Vec3::Y),
             projection: Projection::Perspective(PerspectiveProjection {
                 far: 500.0,
                 fov: FIELD_OF_VIEW,
@@ -104,13 +120,29 @@ fn setup(
             ..default()
         },
         Name::new("MainCamera"),
-        MainCamera { bend_world: true, bending: DEFAULT_BENDING, offset: INITIAL_CAMERA_OFFSET },
-        BloomSettings { threshold: 0.6, knee: 0.2, intensity: 0.15, ..default() },
+        MainCamera {
+            bend_world: true,
+            bending: DEFAULT_BENDING,
+            offset: INITIAL_CAMERA_OFFSET,
+        },
+        BloomSettings {
+            threshold: 0.6,
+            knee: 0.2,
+            intensity: 0.15,
+            ..default()
+        },
         UiCameraConfig { show_ui: true },
     ));
 
     let ground_tex = asset_server.load("ground.png");
     let sap_tex = asset_server.load("sap.png");
+
+    let sap_sound: Handle<AudioSource> = asset_server.load("SapFast.ogg");
+    let wood_sound: Handle<AudioSource> = asset_server.load("Wood.ogg");
+    let bark_sound: Handle<AudioSource> = asset_server.load("Bark.ogg");
+    audioHandles.sap = sap_sound;
+    audioHandles.wood = wood_sound;
+    audioHandles.bark = bark_sound;
 
     let player_material = custom_materials.add(shaders::CustomMaterial {
         time: 0.0,
@@ -121,12 +153,11 @@ fn setup(
     });
     commands.spawn(
         TextBundle::from_section(
-            format_ui_text(0,0,0),
+            format_ui_text(0, 0, 0),
             TextStyle {
                 font: asset_server.load("monogram.ttf"),
                 font_size: 30.0,
                 color: Color::WHITE,
-
             },
         )
         .with_style(Style {
@@ -137,7 +168,7 @@ fn setup(
                 ..default()
             },
             ..default()
-        })
+        }),
     );
 
     let cube_mesh = &meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
@@ -145,10 +176,12 @@ fn setup(
 
     // Create player entity
     commands.spawn((
-        MaterialMeshBundle  {
+        MaterialMeshBundle {
             mesh: plane_mesh.clone(),
             material: player_material,
-            transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0)).with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0)).with_scale(Vec3::new(1.0, 1.0, 1.5)),
+            transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0))
+                .with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0))
+                .with_scale(Vec3::new(1.0, 1.0, 1.5)),
             ..default()
         },
         Movement::new(30.0),
@@ -164,16 +197,35 @@ fn setup(
     ));
 
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
-        (RootResource::Sap, custom_materials.add(CustomMaterial::new(Color::rgb(0.7, 0.7, 5.0), &sap_tex))),
-        (RootResource::Bark, custom_materials.add(CustomMaterial::new(Color::CRIMSON, &ground_tex))),
-        (RootResource::Wood, custom_materials.add(CustomMaterial::new(Color::BEIGE, &ground_tex))),
-    ].into_iter().collect();
+        (
+            RootResource::Sap,
+            custom_materials.add(CustomMaterial::new(Color::rgb(0.7, 0.7, 5.0), &sap_tex)),
+        ),
+        (
+            RootResource::Bark,
+            custom_materials.add(CustomMaterial::new(Color::CRIMSON, &ground_tex)),
+        ),
+        (
+            RootResource::Wood,
+            custom_materials.add(CustomMaterial::new(Color::BEIGE, &ground_tex)),
+        ),
+    ]
+    .into_iter()
+    .collect();
 
     let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &ground_tex));
 
     let height_chances = [0.05, 0.1, 0.2, 0.3, 0.2, 0.05, 0.03, 0.03, 0.02, 0.02];
 
-    let mut gen = WorldGenerator { cube_mesh, plane_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap, height_chances: &height_chances };
+    let mut gen = WorldGenerator {
+        cube_mesh,
+        plane_mesh,
+        material_map,
+        ground_material,
+        rng: &mut rng,
+        blockmap: &mut blockmap,
+        height_chances: &height_chances,
+    };
     for i in 0..500 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
         if gen.blockmap.entities.contains_key(&location) {
@@ -184,7 +236,7 @@ fn setup(
         gen.spawn_root_block(i, &location, root_resource, &mut commands);
         gen.root_around(i, &location, root_resource, 0.3, 0.05, &mut commands);
 
-        gen.make_trunk(i, &location, root_resource, 12,&mut commands);
+        gen.make_trunk(i, &location, root_resource, 12, &mut commands);
     }
     gen.make_ground_plane(&mut commands);
 
@@ -199,10 +251,12 @@ fn setup(
     for _ in 0..150 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
         commands.spawn((
-            MaterialMeshBundle  {
+            MaterialMeshBundle {
                 mesh: plane_mesh.clone(),
                 material: bush_material.clone(),
-                transform: Transform::from_translation(location.into()).with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0)).with_scale(Vec3::new(1.0, 1.0, 1.1)),
+                transform: Transform::from_translation(location.into())
+                    .with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0))
+                    .with_scale(Vec3::new(1.0, 1.0, 1.1)),
                 ..default()
             },
             Name::new("Bush"),
@@ -222,11 +276,15 @@ fn camera_system(
 ) {
     let mut center = Vec3::default();
     let mut count: i32 = 0;
-    for tranform in player_query.iter()  {
+    for tranform in player_query.iter() {
         center += tranform.translation;
         count += 1;
     }
-    center = Vec3::new(center.x / count as f32, center.y / count as f32, center.z / count as f32);
+    center = Vec3::new(
+        center.x / count as f32,
+        center.y / count as f32,
+        center.z / count as f32,
+    );
 
     for (mut transform, mut camera) in query.iter_mut() {
         transform.translation = center + camera.offset;
@@ -250,14 +308,20 @@ fn movement_system(
 ) {
     let ray_hit = |pos, dir| {
         let mut hit = false;
-        rapier_context.intersections_with_ray(pos, dir, 1.0, false, QueryFilter::new(),
+        rapier_context.intersections_with_ray(
+            pos,
+            dir,
+            1.0,
+            false,
+            QueryFilter::new(),
             |entity, _| {
                 if not_player_query.get(entity).is_ok() {
                     hit = true;
                     return false;
                 }
                 true // true = continue searching
-            });
+            },
+        );
         hit
     };
 
@@ -274,7 +338,9 @@ fn movement_system(
         external.impulse = movement_dir * movement.speed * time.delta_seconds();
 
         // Jumping
-        if keyboard_input.just_pressed(KeyCode::Space) && ray_hit(transform.translation, (0.0, -1.0, 0.0).into()) {
+        if keyboard_input.just_pressed(KeyCode::Space)
+            && ray_hit(transform.translation, (0.0, -1.0, 0.0).into())
+        {
             external.impulse += Vec3::new(0.0, 4.0, 0.0);
         }
     }
@@ -300,21 +366,40 @@ fn damage_system(
     root_query: Query<(&Root, &BlockPosition)>,
     mut player_query: Query<&mut Player>,
     mut blockmap: ResMut<BlockMap>,
+    audio_handles: Res<AudioHandles>,
+    audio: Res<Audio>,
     mut commands: Commands,
 ) {
     for ev in damage_events.iter() {
         if let Ok(mut health) = query.get_mut(ev.target_entity) {
             health.health -= ev.amount;
+
+            let root_tuple = root_query.get(ev.target_entity);
+
+            if let Ok((root, _)) = root_tuple {
+                match root.resource {
+                    RootResource::Sap => audio.play(audio_handles.sap.clone()),
+                    RootResource::Bark => audio.play(audio_handles.bark.clone()),
+                    RootResource::Wood => audio.play(audio_handles.wood.clone()),
+                };
+            }
+
             if health.health <= 0 {
                 commands.entity(ev.target_entity).despawn();
 
-                if let Ok((root, block_pos)) = root_query.get(ev.target_entity) {
+                if let Ok((root, block_pos)) = root_tuple {
                     blockmap.entities.remove_entry(&block_pos.0);
 
                     if let Ok(mut player) = player_query.get_mut(ev.attacker) {
                         match root.resource {
-                            RootResource::Sap => player.sap += root.mineable,
-                            RootResource::Bark => player.bark += root.mineable,
+                            RootResource::Sap => {
+                                player.sap += root.mineable;
+                                audio.play(audio_handles.sap.clone());
+                            }
+                            RootResource::Bark => {
+                                player.bark += root.mineable;
+                                audio.play(audio_handles.bark.clone());
+                            }
                             RootResource::Wood => player.wood += root.mineable,
                         }
                     }
@@ -330,12 +415,16 @@ fn collision_system(
 ) {
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(first, second, _) = collision_event {
-            damage_events.send(DamageEvent { target_entity: *second, attacker: *first, amount: 1 });
+            damage_events.send(DamageEvent {
+                target_entity: *second,
+                attacker: *first,
+                amount: 1,
+            });
         }
     }
 }
 
-fn collapse_trunks_system (
+fn collapse_trunks_system(
     mut query: Query<(&mut BlockPosition, &mut Transform)>,
     mut blockmap: ResMut<BlockMap>,
 ) {
@@ -354,20 +443,17 @@ fn collapse_trunks_system (
                 }
                 None => {
                     panic!("Wheres the freaking entity?!?");
-                },
+                }
             }
-
         }
     }
 }
 
-fn ui_count_system (
-    mut query: Query<&mut Text>,
-    player_query: Query<&Player, Changed<Player>>,
-) {
+fn ui_count_system(mut query: Query<&mut Text>, player_query: Query<&Player, Changed<Player>>) {
     for player in &player_query {
         for mut text in query.iter_mut() {
-            text.sections.first_mut().unwrap().value = format_ui_text(player.sap, player.bark, player.wood)
+            text.sections.first_mut().unwrap().value =
+                format_ui_text(player.sap, player.bark, player.wood)
         }
     }
 }
@@ -383,21 +469,34 @@ fn player_attack_system(
         for (player_entity, player_transform, dir) in query.iter() {
             let ray_pos = player_transform.translation;
             let ray_dir = dir.0;
-            rapier_context.intersections_with_ray(ray_pos, ray_dir, 1.0, false, QueryFilter::new(),
+            rapier_context.intersections_with_ray(
+                ray_pos,
+                ray_dir,
+                1.0,
+                false,
+                QueryFilter::new(),
                 |entity, intersection| {
                     // Callback called on each collider hit by the ray.
                     let hit_point = intersection.point;
                     let hit_normal = intersection.normal;
-                    println!("Entity {:?} hit at point {} with normal {}", entity, hit_point, hit_normal);
+                    println!(
+                        "Entity {:?} hit at point {} with normal {}",
+                        entity, hit_point, hit_normal
+                    );
 
                     // Check if player hit anything that has Health
                     if let Ok(enemy_entity) = enemy_query.get_mut(entity) {
-                        damage_events.send(DamageEvent { target_entity: enemy_entity, attacker: player_entity, amount: 1 });
+                        damage_events.send(DamageEvent {
+                            target_entity: enemy_entity,
+                            attacker: player_entity,
+                            amount: 1,
+                        });
                         return false;
                     }
 
                     true // true = continue searching
-                });
+                },
+            );
         }
     }
 }
@@ -414,6 +513,7 @@ fn main() {
         .add_event::<DamageEvent>()
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(BlockMap::default())
+        .insert_resource(AudioHandles::default())
         .add_startup_system(setup)
         .add_system(movement_system)
         .add_system(collapse_trunks_system)
