@@ -110,7 +110,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    var ambient = vec3<f32>(0.1, 0.1, 0.1);
+    var ambient = vec3<f32>(0.01, 0.01, 0.01);
     var lightDir = vec3<f32>(0.5, -0.7, 0.2);
 
     var fog = fog_factor(distance(in.world_position.xyz, player_position));

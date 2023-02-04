@@ -156,6 +156,8 @@ fn setup(
 
     let ground_tex = asset_server.load("ground.png");
     let sap_tex = asset_server.load("sap.png");
+    let bark_tex = asset_server.load("bark.png");
+    let wood_tex = asset_server.load("wood.png");
 
     let sap_sound: Handle<AudioSource> = asset_server.load("SapFast.ogg");
     let wood_sound: Handle<AudioSource> = asset_server.load("Wood.ogg");
@@ -237,15 +239,15 @@ fn setup(
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
         (
             RootResource::Sap,
-            custom_materials.add(CustomMaterial::new(Color::rgb(0.7, 0.7, 7.0), &sap_tex)),
+            custom_materials.add(CustomMaterial::new(Color::rgb(1.0, 1.0, 10.0), &sap_tex)),
         ),
         (
             RootResource::Bark,
-            custom_materials.add(CustomMaterial::new(Color::CRIMSON, &ground_tex)),
+            custom_materials.add(CustomMaterial::new(Color::WHITE, &bark_tex)),
         ),
         (
             RootResource::Wood,
-            custom_materials.add(CustomMaterial::new(Color::BEIGE, &ground_tex)),
+            custom_materials.add(CustomMaterial::new(Color::WHITE, &wood_tex)),
         ),
     ]
     .into_iter()
@@ -623,7 +625,7 @@ fn animation_system(
 
 fn camera_shake_system(mut query: Query<&mut MainCamera>, time: Res<Time>) {
     for mut camera in query.iter_mut() {
-        camera.shake_intensity += -camera.shake_intensity * 5.0 * time.delta_seconds();
+        camera.shake_intensity += -camera.shake_intensity * 10.0 * time.delta_seconds();
     }
 }
 
