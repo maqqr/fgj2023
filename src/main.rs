@@ -64,6 +64,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut custom_materials: ResMut<Assets<shaders::CustomMaterial>>,
     mut blockmap: ResMut<BlockMap>,
+    asset_server: Res<AssetServer>,
 ) {
     let mut rng = rand::thread_rng();
     commands.spawn((
@@ -85,7 +86,15 @@ fn setup(
         BloomSettings { threshold: 0.6, knee: 0.2, intensity: 0.15, ..default() },
     ));
 
-    let cube_material = custom_materials.add(shaders::CustomMaterial { time: 0.0, bending: 0.1, cam_position: Vec3::new(-2.0, 2.5, 5.0), color: Vec3::new(1.0, 0.0, 0.0) } );
+    let test_tex = asset_server.load("test.png");
+
+    let cube_material = custom_materials.add(shaders::CustomMaterial {
+        time: 0.0,
+        bending: 0.1,
+        cam_position: Vec3::new(-2.0, 2.5, 5.0),
+        color: Vec3::new(1.0, 0.0, 0.0),
+        texture: test_tex.clone(),
+    });
     let cube_mesh = &meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_mesh = &meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
 
@@ -106,12 +115,12 @@ fn setup(
     ));
 
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
-        (RootResource::Sap, custom_materials.add(Color::GREEN.into())),
-        (RootResource::Bark, custom_materials.add(Color::CRIMSON.into())),
-        (RootResource::Wood, custom_materials.add(Color::BEIGE.into())),
+        (RootResource::Sap, custom_materials.add(CustomMaterial::new(Color::GREEN, &test_tex))),
+        (RootResource::Bark, custom_materials.add(CustomMaterial::new(Color::CRIMSON, &test_tex))),
+        (RootResource::Wood, custom_materials.add(CustomMaterial::new(Color::BEIGE, &test_tex))),
     ].into_iter().collect();
 
-    let ground_material = &custom_materials.add(Color::DARK_GRAY.into());
+    let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &test_tex));
 
     let mut gen = WorldGenerator { cube_mesh, plane_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap };
     for i in 0..500 {

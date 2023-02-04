@@ -12,6 +12,10 @@ var<uniform> bending: f32;
 var<uniform> cam_position: vec3<f32>;
 @group(1) @binding(3)
 var<uniform> color: vec3<f32>;
+@group(1) @binding(4)
+var color_texture: texture_2d<f32>;
+@group(1) @binding(5)
+var color_sampler: sampler;
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -77,6 +81,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
     var ambient = vec3<f32>(0.1, 0.1, 0.1);
     var lightDir = vec3<f32>(0.5, -0.7, 0.2);
+
+    var texCol = textureSample(color_texture, color_sampler, in.uv);
 
     var N = normalize(in.world_normal);
     var V = normalize(view.world_position.xyz - in.world_position.xyz);
