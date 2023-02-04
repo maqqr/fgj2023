@@ -66,6 +66,12 @@ pub struct Health {
     health: i32
 }
 
+struct DamageEvent {
+    target_entity: Entity,
+    attacker: Entity,
+    amount: i32,
+}
+
 #[derive(Resource, Default)]
 pub struct BlockMap {
     entities: HashMap<Vec3i, Entity>,
@@ -269,22 +275,24 @@ fn custom_damping_system(
     }
 }
 
-fn collision_system(
-    mut collision_events: EventReader<CollisionEvent>,
-    mut query: Query<(&mut Health, &Root, &BlockPosition)>,
+fn damage_system(
+    mut damage_events: EventReader<DamageEvent>,
+    mut query: Query<&mut Health>,
+    root_query: Query<(&Root, &BlockPosition)>,
     mut player_query: Query<&mut Player>,
     mut blockmap: ResMut<BlockMap>,
     mut commands: Commands,
 ) {
-    for collision_event in collision_events.iter() {
-        if let CollisionEvent::Started(first, second, _) = collision_event {
-            if let Ok((mut health, root, block_position)) = query.get_mut(*second) {
-                health.health -= 1;
-                if health.health <= 0 {
-                    blockmap.entities.remove_entry(&block_position.0);
-                    commands.entity(*second).despawn();
+    for ev in damage_events.iter() {
+        if let Ok(mut health) = query.get_mut(ev.target_entity) {
+            health.health -= ev.amount;
+            if health.health <= 0 {
+                commands.entity(ev.target_entity).despawn();
 
-                    if let Ok(mut player) = player_query.get_mut(*first) {
+                if let Ok((root, block_pos)) = root_query.get(ev.target_entity) {
+                    blockmap.entities.remove_entry(&block_pos.0);
+
+                    if let Ok(mut player) = player_query.get_mut(ev.attacker) {
                         match root.resource {
                             RootResource::Sap => player.sap += root.mineable,
                             RootResource::Bark => player.bark += root.mineable,
@@ -293,6 +301,17 @@ fn collision_system(
                     }
                 }
             }
+        }
+    }
+}
+
+fn collision_system(
+    mut collision_events: EventReader<CollisionEvent>,
+    mut damage_events: EventWriter<DamageEvent>,
+) {
+    for collision_event in collision_events.iter() {
+        if let CollisionEvent::Started(first, second, _) = collision_event {
+            damage_events.send(DamageEvent { target_entity: *second, attacker: *first, amount: 1 });
         }
     }
 }
@@ -335,12 +354,14 @@ fn ui_count_system (
 }
 
 fn player_attack_system(
-    query: Query<(&Transform, &Direction), With<Player>>,
+    query: Query<(Entity, &Transform, &Direction), With<Player>>,
+    mut enemy_query: Query<Entity, (With<Health>, Without<Player>)>,
+    mut damage_events: EventWriter<DamageEvent>,
     rapier_context: Res<RapierContext>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::C) {
-        for (player_transform, dir) in query.iter() {
+        for (player_entity, player_transform, dir) in query.iter() {
             let ray_pos = player_transform.translation;
             let ray_dir = dir.0;
             rapier_context.intersections_with_ray(ray_pos, ray_dir, 1.0, false, QueryFilter::new(),
@@ -349,7 +370,14 @@ fn player_attack_system(
                     let hit_point = intersection.point;
                     let hit_normal = intersection.normal;
                     println!("Entity {:?} hit at point {} with normal {}", entity, hit_point, hit_normal);
-                    true // Return false instead if we want to stop searching for other hits.
+
+                    // Check if player hit anything that has Health
+                    if let Ok(enemy_entity) = enemy_query.get_mut(entity) {
+                        damage_events.send(DamageEvent { target_entity: enemy_entity, attacker: player_entity, amount: 1 });
+                        return false;
+                    }
+
+                    true // true = continue searching
                 });
         }
     }
@@ -364,6 +392,7 @@ fn main() {
         // .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(shaders::ShaderPlugin)
+        .add_event::<DamageEvent>()
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(BlockMap::default())
         .add_startup_system(setup)
@@ -374,6 +403,7 @@ fn main() {
         .add_system(ui_count_system)
         .add_system(custom_damping_system)
         .add_system(player_attack_system)
+        .add_system(damage_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .register_type::<BlockPosition>()
         .run();
