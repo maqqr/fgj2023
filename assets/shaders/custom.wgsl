@@ -59,7 +59,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position.x, vertex.position.y, vertex.position.z, 1.0));
     var dist_from_camera = (out.world_position.xyz - cam_position).z;
-    out.world_position += vec4<f32>(0.0, pow(dist_from_camera, 2.0) * -bending, 0.0, 0.0);
+    out.world_position.y += pow(dist_from_camera, 2.0) * -bending;
     out.clip_position = mesh_position_world_to_clip(out.world_position);
 
     return out;

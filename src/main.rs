@@ -7,7 +7,7 @@ mod utils;
 mod world_generation;
 mod constants;
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, utils::HashMap, core_pipeline::bloom::BloomSettings};
 use bevy_rapier3d::prelude::*;
 use vec3i::*;
 use utils::*;
@@ -62,11 +62,16 @@ fn setup(
     let mut rng = rand::thread_rng();
     commands.spawn((
         Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
             transform: Transform::from_translation(INITIAL_CAMERA_OFFSET).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         Name::new("MainCamera"),
         MainCamera { bend_world: true, bending: DEFAULT_BENDING, offset: INITIAL_CAMERA_OFFSET },
+        BloomSettings { threshold: 0.6, knee: 0.2, intensity: 0.15, ..default() },
     ));
 
     let cube_material = custom_materials.add(shaders::CustomMaterial { time: 0.0, bending: 0.1, cam_position: Vec3::new(-2.0, 2.5, 5.0), color: Vec3::new(1.0, 0.0, 0.0) } );
@@ -166,7 +171,7 @@ fn main() {
         .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(shaders::ShaderPlugin)
-        .insert_resource(ClearColor(Color::GRAY))
+        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(BlockMap::default())
         .add_startup_system(setup)
         .add_system(movement_system)
