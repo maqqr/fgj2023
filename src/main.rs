@@ -256,7 +256,8 @@ fn collapse_trunks_system (
         let old = blocks.0;
         let new = Vec3i::new(blocks.0.x(), blocks.0.y() - 1, blocks.0.z());
         if !blockmap.entities.contains_key(&new) {
-            blocks.0.set_y(blocks.0.y() - 1);
+            let y = blocks.0.y();
+            blocks.0.set_y(y - 1);
             transform.translation = blocks.0.into();
 
             let entity = blockmap.entities.get(&old);
