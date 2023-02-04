@@ -32,9 +32,7 @@ impl WorldGenerator<'_> {
                     if self.blockmap.entities.contains_key(&next) {
                         return;
                     }
-                    if self.blockmap.entities.contains_key(&next) {
-                        
-                    } else {
+                    else {
                         self.spawn_root_block(i, &next, root_resource, commands);
                         let trunk_chance = generate_random_number(self.rng);
                         let mut height: i64 = 0;
@@ -53,7 +51,6 @@ impl WorldGenerator<'_> {
                         
                     }
 
-                   
                     self.root_around(i, &next, root_resource, root_chance + root_growth, root_growth, commands);
                 }
             }
@@ -70,13 +67,22 @@ impl WorldGenerator<'_> {
     pub fn spawn_root_block(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
         let material = self.material_map.get(&root_resource).unwrap(); // this will crash if material is not found
         let block = self.spawn_block(position, material, commands);
+
+        let health = match root_resource {
+            RootResource::Sap => 1,
+            RootResource::Bark => 2,
+            RootResource::Wood => 4,
+        };
+
         commands
             .entity(block)
             .insert(Root {
                 id: i,
                 resource: root_resource,
-                mineable: generate_random_between(self.rng, 1, 8),
+                mineable: generate_random_between(self.rng, 1, 5),
             })
+            .insert(ActiveEvents::COLLISION_EVENTS)
+            .insert(Health { health })
             .insert(Collider::cuboid(0.5, 0.5, 0.5));
     }
 
