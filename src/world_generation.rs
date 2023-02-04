@@ -38,13 +38,19 @@ impl WorldGenerator<'_> {
     }
 
     pub fn spawn_root(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
+        if self.blockmap.entities.contains_key(position) {
+            return;
+        }
         let material = self.material_map.get(&root_resource).unwrap(); // this will crash if material is not found
         let block = self.spawn_block(position, material, commands);
-        commands.entity(block).insert(Root {
-            id: i,
-            resource: root_resource,
-            mineable: generate_random_between(self.rng, 1, 8),
-        });
+        commands
+            .entity(block)
+            .insert(Root {
+                id: i,
+                resource: root_resource,
+                mineable: generate_random_between(self.rng, 1, 8),
+            })
+            .insert(Collider::cuboid(0.5, 0.5, 0.5));
     }
 
     pub fn spawn_ground(&mut self, position: &Vec3i, commands: &mut Commands) {
@@ -73,5 +79,11 @@ impl WorldGenerator<'_> {
                 self.spawn_ground(&(x, -1, z).into(), commands);
             }
         }
+
+        // Add one large collider for all ground blocks
+        commands.spawn((
+            TransformBundle::from(Transform::from_xyz(0.0, -1.0, 0.0)),
+            Collider::cuboid(LEVEL_MAX, 0.5, LEVEL_MAX),
+        ));
     }
 }

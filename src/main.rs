@@ -97,12 +97,6 @@ fn setup(
         ExternalImpulse::default(),
     ));
 
-    // Create invisible ground for debugging purposes
-    commands.spawn((
-        TransformBundle::from(Transform::from_xyz(0.0, -1.0, 0.0)),
-        Collider::cuboid(100.0, 0.5, 100.0),
-    ));
-
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
         (RootResource::Sap, custom_materials.add(Color::GREEN.into())),
         (RootResource::Bark, custom_materials.add(Color::CRIMSON.into())),
@@ -112,7 +106,7 @@ fn setup(
     let ground_material = &custom_materials.add(Color::DARK_GRAY.into());
 
     let mut gen = WorldGenerator { cube_mesh: &cube_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap };
-    for i in 0..1000 {
+    for i in 0..500 {
         let root_resource = random_resource(gen.rng);
 
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
