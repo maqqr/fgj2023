@@ -130,18 +130,20 @@ fn setup(
         })
     );
 
+    let player_mesh = meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
+
     let cube_mesh = &meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_mesh = &meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
 
     // Create player entity
     commands.spawn((
         MaterialMeshBundle  {
-            mesh: cube_mesh.clone(),
+            mesh: player_mesh,
             material: cube_material.clone(),
-            transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0)),
+            transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0)).with_rotation(Quat::from_rotation_x(0.5 * PI)).with_scale(Vec3::new(1.0, 1.0, 1.5)),
             ..default()
         },
-        Movement::new(10.0),
+        Movement::new(30.0),
         Player::default(),
         Name::new("Cube"),
         RigidBody::Dynamic,
