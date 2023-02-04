@@ -303,6 +303,8 @@ fn setup(
                     .with_scale(Vec3::new(1.0, 1.0, 1.1)),
                 ..default()
             },
+            Health{health:1},
+            Collider::ball(0.23),
             Name::new("Bush"),
         ));
     }
