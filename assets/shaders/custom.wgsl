@@ -79,14 +79,20 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     return in.color;
 #else
 
+    var texCol = textureSample(color_texture, color_sampler, in.uv);
+    if (texCol.r == 0.0 && texCol.g == 0.0 && texCol.b == 0.0) {
+        discard;
+    }
+
     var ambient = vec3<f32>(0.1, 0.1, 0.1);
     var lightDir = vec3<f32>(0.5, -0.7, 0.2);
-
-    var texCol = textureSample(color_texture, color_sampler, in.uv);
 
     var N = normalize(in.world_normal);
     var V = normalize(view.world_position.xyz - in.world_position.xyz);
     var diff = max(dot(N, V), 0.0001) * color;
+    diff.r *= texCol.r;
+    diff.g *= texCol.g;
+    diff.b *= texCol.b;
 
     var result = ambient + diff;
 
