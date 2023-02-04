@@ -122,7 +122,9 @@ fn setup(
 
     let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &test_tex));
 
-    let mut gen = WorldGenerator { cube_mesh, plane_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap };
+    let heightChances = [0.05, 0.1, 0.2, 0.3, 0.2, 0.05, 0.03, 0.03, 0.02, 0.02];
+
+    let mut gen = WorldGenerator { cube_mesh, plane_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap, height_chances: &heightChances };
     for i in 0..500 {
         let root_resource = random_resource(gen.rng);
 
@@ -130,7 +132,7 @@ fn setup(
         gen.spawn_root_block(i, &location, root_resource, &mut commands);
         gen.root_around(i, &location, root_resource, 0.3, 0.05, &mut commands);
 
-        gen.make_trunk(i, &location, root_resource, &mut commands);
+        gen.make_trunk(i, &location, root_resource, 12,&mut commands);
     }
     gen.make_ground_plane(&mut commands);
 }
@@ -184,9 +186,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<shaders::CustomMaterial>::default())
-        .add_plugin(bevy_editor_pls::EditorPlugin)
-        .add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
-        .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
+        // .add_plugin(bevy_editor_pls::EditorPlugin)
+        // .add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
+        // .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(shaders::ShaderPlugin)
         .insert_resource(ClearColor(Color::BLACK))
