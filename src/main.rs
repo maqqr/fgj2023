@@ -100,7 +100,8 @@ fn setup(
         UiCameraConfig { show_ui: true },
     ));
 
-    let test_tex = asset_server.load("ground.png");
+    let ground_tex = asset_server.load("ground.png");
+    let sap_tex = asset_server.load("sap.png");
 
     let player_material = custom_materials.add(shaders::CustomMaterial {
         time: 0.0,
@@ -153,12 +154,12 @@ fn setup(
     ));
 
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
-        (RootResource::Sap, custom_materials.add(CustomMaterial::new(Color::GREEN, &test_tex))),
-        (RootResource::Bark, custom_materials.add(CustomMaterial::new(Color::CRIMSON, &test_tex))),
-        (RootResource::Wood, custom_materials.add(CustomMaterial::new(Color::BEIGE, &test_tex))),
+        (RootResource::Sap, custom_materials.add(CustomMaterial::new(Color::rgb(0.7, 0.7, 5.0), &sap_tex))),
+        (RootResource::Bark, custom_materials.add(CustomMaterial::new(Color::CRIMSON, &ground_tex))),
+        (RootResource::Wood, custom_materials.add(CustomMaterial::new(Color::BEIGE, &ground_tex))),
     ].into_iter().collect();
 
-    let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &test_tex));
+    let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &ground_tex));
 
     let height_chances = [0.05, 0.1, 0.2, 0.3, 0.2, 0.05, 0.03, 0.03, 0.02, 0.02];
 
