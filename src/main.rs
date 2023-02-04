@@ -100,7 +100,7 @@ fn setup(
         UiCameraConfig { show_ui: true },
     ));
 
-    let test_tex = asset_server.load("test.png");
+    let test_tex = asset_server.load("ground.png");
 
     let player_material = custom_materials.add(shaders::CustomMaterial {
         time: 0.0,
@@ -130,15 +130,13 @@ fn setup(
         })
     );
 
-    let player_mesh = meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
-
     let cube_mesh = &meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_mesh = &meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
 
     // Create player entity
     commands.spawn((
         MaterialMeshBundle  {
-            mesh: player_mesh,
+            mesh: plane_mesh.clone(),
             material: player_material,
             transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0)).with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0)).with_scale(Vec3::new(1.0, 1.0, 1.5)),
             ..default()
@@ -178,6 +176,27 @@ fn setup(
         gen.make_trunk(i, &location, root_resource, 12,&mut commands);
     }
     gen.make_ground_plane(&mut commands);
+
+    // Make random bushes
+    let bush_material = custom_materials.add(shaders::CustomMaterial {
+        time: 0.0,
+        bending: 0.1,
+        cam_position: Vec3::new(-2.0, 2.5, 5.0),
+        color: Vec3::new(1.0, 1.0, 1.0),
+        texture: asset_server.load("bush.png"),
+    });
+    for _ in 0..150 {
+        let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
+        commands.spawn((
+            MaterialMeshBundle  {
+                mesh: plane_mesh.clone(),
+                material: bush_material.clone(),
+                transform: Transform::from_translation(location.into()).with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0)).with_scale(Vec3::new(1.0, 1.0, 1.1)),
+                ..default()
+            },
+            Name::new("Bush"),
+        ));
+    }
 }
 
 fn format_ui_text(sap: i32, bark: i32, wood: i32) -> String {
