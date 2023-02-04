@@ -127,6 +127,7 @@ fn setup(
     mut blockmap: ResMut<BlockMap>,
     asset_server: Res<AssetServer>,
     mut audioHandles: ResMut<AudioHandles>,
+    audio: Res<Audio>,
 ) {
     let mut rng = rand::thread_rng();
     commands.spawn((
@@ -168,6 +169,7 @@ fn setup(
     let sap_sound: Handle<AudioSource> = asset_server.load("SapFast.ogg");
     let wood_sound: Handle<AudioSource> = asset_server.load("Wood.ogg");
     let bark_sound: Handle<AudioSource> = asset_server.load("Bark.ogg");
+    let music: Handle<AudioSource> = asset_server.load("DheJamas.ogg");
     audioHandles.sap = sap_sound;
     audioHandles.wood = wood_sound;
     audioHandles.bark = bark_sound;
@@ -311,11 +313,7 @@ fn setup(
         ));
     }
 
-    // let mut file = File::create("foo.txt");
-    // match file {
-    //     Ok(file) => write!(&file, "{:?}", gen.blockmap.entities),
-    //     Err(_) => panic!(),
-    // };
+    audio.play_with_settings(music, PlaybackSettings { repeat: true, volume: 0.5, ..default() });
 }
 
 fn format_ui_text(sap: i32, bark: i32, wood: i32) -> String {
