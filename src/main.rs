@@ -102,12 +102,12 @@ fn setup(
 
     let test_tex = asset_server.load("test.png");
 
-    let cube_material = custom_materials.add(shaders::CustomMaterial {
+    let player_material = custom_materials.add(shaders::CustomMaterial {
         time: 0.0,
         bending: 0.1,
         cam_position: Vec3::new(-2.0, 2.5, 5.0),
-        color: Vec3::new(1.0, 0.0, 0.0),
-        texture: test_tex.clone(),
+        color: Vec3::new(1.0, 1.0, 1.0),
+        texture: asset_server.load("up.png"),
     });
     commands.spawn(
         TextBundle::from_section(
@@ -139,8 +139,8 @@ fn setup(
     commands.spawn((
         MaterialMeshBundle  {
             mesh: player_mesh,
-            material: cube_material.clone(),
-            transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0)).with_rotation(Quat::from_rotation_x(0.5 * PI)).with_scale(Vec3::new(1.0, 1.0, 1.5)),
+            material: player_material,
+            transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0)).with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0)).with_scale(Vec3::new(1.0, 1.0, 1.5)),
             ..default()
         },
         Movement::new(30.0),
