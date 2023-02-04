@@ -167,6 +167,7 @@ impl WorldGenerator<'_> {
                     ..default()
                 },
                 BlockPosition(*position),
+                bevy::render::view::NoFrustumCulling,
             ))
             .id();
         self.blockmap.entities.insert(*position, entity);
