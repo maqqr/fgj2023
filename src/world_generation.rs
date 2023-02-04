@@ -4,6 +4,12 @@ use crate::{shaders::CustomMaterial, utils::*, vec3i::Vec3i, *};
 use bevy::prelude::*;
 use rand::{random, rngs::ThreadRng};
 
+#[derive(PartialEq)]
+pub enum RootMode {
+    HorizontalOnly,
+    All
+}
+
 pub struct WorldGenerator<'a> {
     pub cube_mesh: &'a Handle<Mesh>,
     pub plane_mesh: &'a Handle<Mesh>,
@@ -38,8 +44,9 @@ impl WorldGenerator<'_> {
                         root_resource,
                         root_chance + root_growth,
                         root_growth,
+                        RootMode::All,
                         commands,
-                    )
+                    );
                 } else {
                     let new_root_resource = match root_resource {
                         RootResource::Sap => RootResource::Wood,
@@ -59,6 +66,7 @@ impl WorldGenerator<'_> {
         root_resource: RootResource,
         root_chance: f32,
         root_growth: f32,
+        root_mode: RootMode,
         commands: &mut Commands,
     ) {
         if self.blockmap.entities.contains_key(&next) {
@@ -79,13 +87,14 @@ impl WorldGenerator<'_> {
         if !passed {
             return;
         }
-        if generate_random_number(self.rng) >= root_chance {
+        if root_mode == RootMode::All && generate_random_number(self.rng) >= root_chance {
             self.root_a_block(
                 i,
                 next + Vec3i::new(0, 1, 0),
                 root_resource,
                 root_chance + root_growth,
                 root_growth,
+                RootMode::All,
                 commands,
             );
         }
@@ -119,6 +128,7 @@ impl WorldGenerator<'_> {
                     root_resource,
                     root_chance,
                     root_growth,
+                    RootMode::HorizontalOnly,
                     commands,
                 );
             } else {
