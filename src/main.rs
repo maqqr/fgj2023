@@ -7,11 +7,10 @@ mod utils;
 mod vec3i;
 mod world_generation;
 
-use std::{f32::consts::PI, fs::File};
-use std::io::prelude::*;
+use std::{f32::consts::PI};
 
 use bevy::{
-    audio::{self, Source},
+    audio::*,
     core_pipeline::bloom::BloomSettings,
     prelude::*,
     utils::HashMap,
@@ -265,17 +264,17 @@ fn setup(
         blockmap: &mut blockmap,
         height_chances: &height_chances,
     };
-    for i in 0..500 {
+    const ROOT_CHANCE: f32 = 0.3;
+    const ROOT_GROWTH: f32 = 0.3;
+
+    for i in 0..100 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
         if gen.blockmap.entities.contains_key(&location) {
             continue;
         }
         let root_resource = RootResource::Sap;
 
-        gen.spawn_root_block(i, &location, root_resource, &mut commands);
-        gen.root_around(i, &location, root_resource, 0.3, 0.15, &mut commands);
-
-        gen.make_trunk(i, &location, root_resource, 18, &mut commands);
+        gen.make_trunk(i, &location, root_resource, 18, 5, ROOT_CHANCE, ROOT_GROWTH, &mut commands);
     }
     gen.make_ground_plane(&mut commands);
 
@@ -485,16 +484,21 @@ fn damage_system(
 }
 
 fn collision_system(
+    root_query: Query<(&Root)>,
     mut collision_events: EventReader<CollisionEvent>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(first, second, _) = collision_event {
-            damage_events.send(DamageEvent {
-                target_entity: *second,
-                attacker: *first,
-                amount: 1,
-            });
+            if let Ok(root) = root_query.get(*second) {
+                if root.resource == RootResource::Sap {
+                    damage_events.send(DamageEvent {
+                        target_entity: *second,
+                        attacker: *first,
+                        amount: 1,
+                    });
+                }
+            }
         }
     }
 }
