@@ -36,15 +36,23 @@ impl Movement {
 #[derive(Component, Default)]
 struct Direction(Vec3);
 
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Default)]
+enum CardinalDirection {
+    #[default] Up,
+    Down,
+    Left,
+    Right,
+}
+
 #[derive(Component, Default)]
 struct Player {
     sap: i32,
     bark: i32,
     wood: i32,
-    left_img: Handle<Image>,
-    right_img: Handle<Image>,
-    up_img: Handle<Image>,
-    down_img: Handle<Image>,
+    last_direction: CardinalDirection,
+    images: HashMap<CardinalDirection, Handle<Image>>,
+    strike_images: HashMap<CardinalDirection, Handle<Image>>,
+    strike_anim_timer: f32,
 }
 
 #[derive(Component)]
@@ -81,6 +89,11 @@ struct DamageEvent {
     target_entity: Entity,
     attacker: Entity,
     amount: i32,
+}
+
+struct AnimEvent {
+    direction: CardinalDirection,
+    is_strike: bool,
 }
 
 #[derive(Resource, Default)]
@@ -180,6 +193,18 @@ fn setup(
     let cube_mesh = &meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_mesh = &meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
 
+    let mut player_images = HashMap::new();
+    player_images.insert(CardinalDirection::Left, asset_server.load("right.png"));
+    player_images.insert(CardinalDirection::Right, asset_server.load("left.png"));
+    player_images.insert(CardinalDirection::Up, asset_server.load("up.png"));
+    player_images.insert(CardinalDirection::Down, asset_server.load("down.png"));
+
+    let mut player_strike_images = HashMap::new();
+    player_strike_images.insert(CardinalDirection::Left, asset_server.load("right_s.png"));
+    player_strike_images.insert(CardinalDirection::Right, asset_server.load("left_s.png"));
+    player_strike_images.insert(CardinalDirection::Up, asset_server.load("up_s.png"));
+    player_strike_images.insert(CardinalDirection::Down, asset_server.load("down_s.png"));
+
     // Create player entity
     commands.spawn((
         MaterialMeshBundle {
@@ -192,10 +217,8 @@ fn setup(
         },
         Movement::new(30.0),
         Player {
-            left_img: asset_server.load("right.png"),
-            right_img: asset_server.load("left.png"),
-            up_img: asset_server.load("up.png"),
-            down_img: asset_server.load("down.png"),
+            images: player_images,
+            strike_images: player_strike_images,
             ..default()
         },
         Name::new("Cube"),
@@ -316,10 +339,11 @@ fn camera_system(
 fn movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut Handle<CustomMaterial>, &mut ExternalImpulse, &mut Direction, &Movement, &Transform, &Player)>,
+    mut query: Query<(&mut ExternalImpulse, &mut Direction, &Movement, &Transform, &mut Player)>,
     not_player_query: Query<Entity, Without<Player>>,
     mut custom_materials: ResMut<Assets<CustomMaterial>>,
     rapier_context: Res<RapierContext>,
+    mut anim_events: EventWriter<AnimEvent>,
 ) {
     let ray_hit = |pos, dir| {
         let mut hit = false;
@@ -340,7 +364,7 @@ fn movement_system(
         hit
     };
 
-    for (mat, mut external, mut dir, movement, transform, player) in query.iter_mut() {
+    for (mut external, mut dir, movement, transform, mut player) in query.iter_mut() {
         // Sum vectors from directions that are pressed
         let movement_dir = KEYS
             .iter()
@@ -360,20 +384,26 @@ fn movement_system(
             external.impulse += Vec3::new(0.0, 4.0, 0.0);
         }
 
-        // Sprite change
-        if let Some(mat) = custom_materials.get_mut(&mat) {
+        let cdir =
             if movement_dir == (0.0, 0.0, -1.0).into() {
-                mat.texture = player.up_img.clone();
+                Some(CardinalDirection::Up)
             }
-            if movement_dir == (0.0, 0.0, 1.0).into() {
-                mat.texture = player.down_img.clone();
+            else if movement_dir == (0.0, 0.0, 1.0).into() {
+                Some(CardinalDirection::Down)
             }
-            if movement_dir == (-1.0, 0.0, 0.0).into() {
-                mat.texture = player.left_img.clone();
+            else if movement_dir == (-1.0, 0.0, 0.0).into() {
+                Some(CardinalDirection::Left)
             }
-            if movement_dir == (1.0, 0.0, 0.0).into() {
-                mat.texture = player.right_img.clone();
+            else if movement_dir == (1.0, 0.0, 0.0).into() {
+                Some(CardinalDirection::Right)
             }
+            else {
+                None
+            };
+
+        if let Some(dir) = cdir {
+            player.last_direction = dir;
+            anim_events.send(AnimEvent { direction: dir, is_strike: false });
         }
     }
 }
@@ -489,14 +519,18 @@ fn ui_count_system(mut query: Query<&mut Text>, player_query: Query<&Player, Cha
 }
 
 fn player_attack_system(
-    query: Query<(Entity, &Transform, &Direction), With<Player>>,
+    query: Query<(Entity, &Transform, &Direction, &Player)>,
     mut enemy_query: Query<Entity, (With<Health>, Without<Player>)>,
     mut damage_events: EventWriter<DamageEvent>,
+    mut anim_events: EventWriter<AnimEvent>,
     rapier_context: Res<RapierContext>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::C) {
-        for (player_entity, player_transform, dir) in query.iter() {
+        for (player_entity, player_transform, dir, player) in query.iter() {
+
+            anim_events.send(AnimEvent { direction: player.last_direction, is_strike: true });
+
             let ray_pos = player_transform.translation;
             let ray_dir = dir.0;
             rapier_context.intersections_with_ray(
@@ -531,6 +565,43 @@ fn player_attack_system(
     }
 }
 
+fn animation_system(
+    mut query: Query<(&Handle<CustomMaterial>, &mut Player)>,
+    mut anim_events: EventReader<AnimEvent>,
+    mut custom_materials: ResMut<Assets<CustomMaterial>>,
+    time: Res<Time>,
+) {
+    for ev in anim_events.iter() {
+        for (mat, mut player) in query.iter_mut() {
+            if let Some(mat) = custom_materials.get_mut(mat) {
+
+                if ev.is_strike {
+                    player.strike_anim_timer = 0.2;
+                    mat.texture = player.strike_images.get(&ev.direction).unwrap().clone();
+                }
+                else {
+                    mat.texture = player.images.get(&ev.direction).unwrap().clone();
+                }
+
+            }
+        }
+    }
+
+    for (mat, mut player) in query.iter_mut() {
+        if player.strike_anim_timer > 0.0 {
+            player.strike_anim_timer -= time.delta_seconds();
+
+            if player.strike_anim_timer <= 0.0 {
+                if let Some(mat) = custom_materials.get_mut(mat) {
+                    if let Some(img) = player.images.get(&player.last_direction) {
+                        mat.texture = img.clone();
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -541,6 +612,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(shaders::ShaderPlugin)
         .add_event::<DamageEvent>()
+        .add_event::<AnimEvent>()
         .insert_resource(ClearColor(Color::rgb(27.0 / 255.0, 28.0 / 255.0, 17.0 / 255.0)))
         .insert_resource(BlockMap::default())
         .insert_resource(AudioHandles::default())
@@ -553,6 +625,7 @@ fn main() {
         .add_system(custom_damping_system)
         .add_system(player_attack_system)
         .add_system(damage_system)
+        .add_system(animation_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .register_type::<BlockPosition>()
         .run();
