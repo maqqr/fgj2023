@@ -34,7 +34,7 @@ impl WorldGenerator<'_> {
             for z in -1..2 {
                 let next = *location + Vec3i::new(x, 0, z);
                 if self.blockmap.entities.contains_key(&next) {
-                    return;
+                    continue;
                 }
 
                 if generate_random_number(self.rng) >= root_chance {
@@ -48,12 +48,12 @@ impl WorldGenerator<'_> {
                         commands,
                     );
                 } else {
-                    let new_root_resource = match root_resource {
-                        RootResource::Sap => RootResource::Wood,
+                    let (new_root_resource, new_root_chance, new_root_growth) = match root_resource {
+                        RootResource::Sap => (RootResource::Wood, 0.0, 0.2),
                         RootResource::Bark => return,
-                        RootResource::Wood => RootResource::Bark,
+                        RootResource::Wood => (RootResource::Bark, 0.2, 0.7),
                     };
-                    self.root_around(i, &next, new_root_resource, 0.0, root_growth, commands);
+                    self.root_around(i, &next, new_root_resource, new_root_chance, new_root_growth, commands);
                 }
             }
         }
@@ -74,19 +74,6 @@ impl WorldGenerator<'_> {
         }
 
         self.spawn_root_block(i, &next, root_resource, commands);
-        let trunk_chance = generate_random_number(self.rng);
-        let mut passed: bool = false;
-        let mut total = 0.0;
-        for (_, partial_chance) in self.height_chances.iter().enumerate() {
-            total += partial_chance;
-            if total > trunk_chance {
-                passed = true;
-                break;
-            }
-        }
-        if !passed {
-            return;
-        }
         if root_mode == RootMode::All && generate_random_number(self.rng) >= root_chance {
             self.root_a_block(
                 i,
