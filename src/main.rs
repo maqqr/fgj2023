@@ -114,6 +114,12 @@ pub struct AudioHandles {
 #[reflect(Component)]
 pub struct BlockPosition(Vec3i);
 
+#[derive(Component)]
+struct Particle {
+    lifetime_left: f32,
+    velocity: Vec3,
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -255,7 +261,7 @@ fn setup(
     .into_iter()
     .collect();
 
-    let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &ground_tex));
+    let ground_material = &custom_materials.add(CustomMaterial::new(Color::WHITE, &ground_tex));
 
     let height_chances = [0.1, 0.4, 0.7, 0.85, 0.95, 0.96, 0.98, 0.99];
 
@@ -627,6 +633,10 @@ fn camera_shake_system(mut query: Query<&mut MainCamera>, time: Res<Time>) {
     for mut camera in query.iter_mut() {
         camera.shake_intensity += -camera.shake_intensity * 10.0 * time.delta_seconds();
     }
+}
+
+fn particle_system(mut query: Query<(&mut Particle, &mut Transform)>) {
+
 }
 
 fn main() {
