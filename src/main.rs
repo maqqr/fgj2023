@@ -253,7 +253,7 @@ fn setup(
 
     let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &ground_tex));
 
-    let height_chances = [0.15, 0.1, 0.2, 0.3, 0.2, 0.05];
+    let height_chances = [0.1, 0.4, 0.7, 0.85, 0.95, 0.96, 0.98, 0.99];
 
     let mut gen = WorldGenerator {
         cube_mesh,
@@ -265,7 +265,7 @@ fn setup(
         height_chances: &height_chances,
     };
     const ROOT_CHANCE: f32 = 0.3;
-    const ROOT_GROWTH: f32 = 0.3;
+    const ROOT_GROWTH: f32 = 0.1;
 
     for i in 0..100 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);

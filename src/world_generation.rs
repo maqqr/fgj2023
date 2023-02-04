@@ -17,7 +17,7 @@ pub struct WorldGenerator<'a> {
     pub ground_material: &'a Handle<CustomMaterial>,
     pub rng: &'a mut ThreadRng,
     pub blockmap: &'a mut BlockMap,
-    pub height_chances: &'a [f32; 6],
+    pub height_chances: &'a [f32; 8],
 }
 
 impl WorldGenerator<'_> {
@@ -74,7 +74,11 @@ impl WorldGenerator<'_> {
         }
 
         self.spawn_root_block(i, &next, root_resource, commands);
-        if root_mode == RootMode::All && generate_random_number(self.rng) >= root_chance {
+        let mut disallow_up = root_mode == RootMode::HorizontalOnly;
+        if next.y() >= self.height_chances.len() as i64 {
+            disallow_up = true;
+        }
+        if !disallow_up && generate_random_number(self.rng) >= self.height_chances[next.y() as usize]  {
             self.root_a_block(
                 i,
                 next + Vec3i::new(0, 1, 0),
