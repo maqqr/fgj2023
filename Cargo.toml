@@ -22,3 +22,5 @@ rustflags = ["-Zshare-generics=n"]
 bevy = "0.9.1"
 bevy_editor_pls = "0.2.0"
 rand = "0.8.5"
+bevy_rapier3d = { version = "0.20.0", features = [ "simd-nightly", "debug-render" ] }
+lazy_static = "1.4.0"

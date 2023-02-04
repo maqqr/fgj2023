@@ -1,16 +1,18 @@
+#[macro_use]
+extern crate lazy_static;
+
 mod shaders;
 mod vec3i;
 mod utils;
 mod world_generation;
+mod constants;
 
 use bevy::{prelude::*, utils::HashMap};
+use bevy_rapier3d::prelude::*;
 use vec3i::*;
 use utils::*;
 use world_generation::*;
-
-const LEVEL_MIN: f32 = -300.0;
-const LEVEL_MAX: f32 = 300.0;
-const INITIAL_CAMERA_OFFSET: Vec3 = Vec3::new(0.0, 11.0, 15.0);
+use constants::*;
 
 #[derive(Component)]
 struct Movement{
@@ -64,12 +66,13 @@ fn setup(
             ..default()
         },
         Name::new("MainCamera"),
-        MainCamera { bend_world: true, bending: shaders::DEFAULT_BENDING, offset: INITIAL_CAMERA_OFFSET },
+        MainCamera { bend_world: true, bending: DEFAULT_BENDING, offset: INITIAL_CAMERA_OFFSET },
     ));
 
     let cube_material = custom_materials.add(shaders::CustomMaterial { time: 0.0, bending: 0.1, cam_position: Vec3::new(-2.0, 2.5, 5.0), color: Vec3::new(1.0, 0.0, 0.0) } );
     let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
 
+    // Create player entity
     commands.spawn((
         MaterialMeshBundle  {
             mesh: cube_mesh.clone(),
@@ -80,6 +83,15 @@ fn setup(
         Movement::new(10.0),
         Player,
         Name::new("Cube"),
+        RigidBody::Dynamic,
+        Collider::ball(0.5),
+        ExternalImpulse::default(),
+    ));
+
+    // Create invisible ground for debugging purposes
+    commands.spawn((
+        TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)),
+        Collider::cuboid(100.0, 0.1, 100.0),
     ));
 
     let sap = custom_materials.add(Color::GREEN.into());
@@ -132,21 +144,16 @@ fn camera_system(
 fn movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &Movement), With<Player>>,
+    mut query: Query<(&mut ExternalImpulse, &Movement), With<Player>>,
 ) {
-    for (mut transform, movement) in query.iter_mut() {
-        if keyboard_input.pressed(KeyCode::Up) {
-            transform.translation.z -= movement.speed * time.delta_seconds();
-        }
-        if keyboard_input.pressed(KeyCode::Down) {
-            transform.translation.z += movement.speed * time.delta_seconds();
-        }
-        if keyboard_input.pressed(KeyCode::Left) {
-            transform.translation.x -= movement.speed * time.delta_seconds();
-        }
-        if keyboard_input.pressed(KeyCode::Right) {
-            transform.translation.x += movement.speed * time.delta_seconds();
-        }
+    for (mut external, movement) in query.iter_mut() {
+        // Sum vectors from directions that are pressed
+        let movement_dir = KEYS
+            .iter()
+            .filter_map(|(key, v)| keyboard_input.pressed(*key).then_some(v))
+            .sum::<Vec3>();
+
+        external.impulse = movement_dir * movement.speed * time.delta_seconds();
     }
 }
 
@@ -157,6 +164,7 @@ fn main() {
         .add_plugin(bevy_editor_pls::EditorPlugin)
         .add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugin(bevy::diagnostic::EntityCountDiagnosticsPlugin)
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(shaders::ShaderPlugin)
         .insert_resource(ClearColor(Color::GRAY))
         .insert_resource(BlockMap::default())

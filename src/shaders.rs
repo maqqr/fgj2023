@@ -6,8 +6,6 @@ use bevy::{
 
 use crate::MainCamera;
 
-pub const DEFAULT_BENDING: f32 = 0.01;
-
 // This is the struct that will be passed to your shader
 #[derive(AsBindGroup, Debug, Clone, TypeUuid)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
