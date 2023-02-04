@@ -4,6 +4,7 @@ use crate::{*, vec3i::Vec3i, shaders::CustomMaterial, utils::*};
 
 pub struct WorldGenerator<'a> {
     pub cube_mesh: &'a Handle<Mesh>,
+    pub plane_mesh: &'a Handle<Mesh>,
     pub material_map: &'a HashMap<RootResource, Handle<CustomMaterial>>,
     pub ground_material: &'a Handle<CustomMaterial>,
     pub rng: &'a mut ThreadRng,
@@ -30,14 +31,21 @@ impl WorldGenerator<'_> {
                     if self.blockmap.entities.contains_key(&next) {
                         return;
                     }
-                    self.spawn_root(i, &next, root_resource, commands);
+                    self.spawn_root_block(i, &next, root_resource, commands);
                     self.root_around(i, &next, root_resource, root_chance + root_growth, root_growth, commands);
                 }
             }
         }
     }
 
-    pub fn spawn_root(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
+    pub fn make_trunk(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
+        // TODO: This trunk needs some thickness
+        for y in 0..12 {
+            self.spawn_root_block(i, &(*position + (0, y, 0).into()), root_resource, commands);
+        }
+    }
+
+    pub fn spawn_root_block(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
         if self.blockmap.entities.contains_key(position) {
             return;
         }
@@ -51,10 +59,6 @@ impl WorldGenerator<'_> {
                 mineable: generate_random_between(self.rng, 1, 8),
             })
             .insert(Collider::cuboid(0.5, 0.5, 0.5));
-    }
-
-    pub fn spawn_ground(&mut self, position: &Vec3i, commands: &mut Commands) {
-        self.spawn_block(position, self.ground_material, commands);
     }
 
     pub fn spawn_block(&mut self, position: &Vec3i, material: &Handle<CustomMaterial>, commands: &mut Commands) -> Entity {
@@ -76,7 +80,13 @@ impl WorldGenerator<'_> {
     pub fn make_ground_plane(&mut self, commands: &mut Commands) {
         for x in LEVEL_MIN as i64..LEVEL_MAX as i64 {
             for z in LEVEL_MIN as i64..LEVEL_MAX as i64 {
-                self.spawn_ground(&(x, -1, z).into(), commands);
+                // Ground block is simplified into a plane mesh
+                commands.spawn((MaterialMeshBundle {
+                    mesh: self.plane_mesh.clone(),
+                    material: self.ground_material.clone(),
+                    transform: Transform::from_translation(Vec3::new(x as f32, -0.5, z as f32)),
+                    ..default()
+                },));
             }
         }
 

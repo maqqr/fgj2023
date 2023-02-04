@@ -7,6 +7,8 @@ mod utils;
 mod world_generation;
 mod constants;
 
+use std::f32::consts::PI;
+
 use bevy::{prelude::*, utils::HashMap, core_pipeline::bloom::BloomSettings};
 use bevy_rapier3d::prelude::*;
 use shaders::CustomMaterial;
@@ -71,6 +73,11 @@ fn setup(
                 ..default()
             },
             transform: Transform::from_translation(INITIAL_CAMERA_OFFSET).looking_at(Vec3::ZERO, Vec3::Y),
+            projection: Projection::Perspective(PerspectiveProjection {
+                far: 500.0,
+                fov: FIELD_OF_VIEW,
+                ..default()
+            }),
             ..default()
         },
         Name::new("MainCamera"),
@@ -79,7 +86,8 @@ fn setup(
     ));
 
     let cube_material = custom_materials.add(shaders::CustomMaterial { time: 0.0, bending: 0.1, cam_position: Vec3::new(-2.0, 2.5, 5.0), color: Vec3::new(1.0, 0.0, 0.0) } );
-    let cube_mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let cube_mesh = &meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let plane_mesh = &meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
 
     // Create player entity
     commands.spawn((
@@ -105,13 +113,15 @@ fn setup(
 
     let ground_material = &custom_materials.add(Color::DARK_GRAY.into());
 
-    let mut gen = WorldGenerator { cube_mesh: &cube_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap };
+    let mut gen = WorldGenerator { cube_mesh, plane_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap };
     for i in 0..500 {
         let root_resource = random_resource(gen.rng);
 
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
-        gen.spawn_root(i, &location, root_resource, &mut commands);
+        gen.spawn_root_block(i, &location, root_resource, &mut commands);
         gen.root_around(i, &location, root_resource, 0.3, 0.05, &mut commands);
+
+        gen.make_trunk(i, &location, root_resource, &mut commands);
     }
     gen.make_ground_plane(&mut commands);
 }
@@ -157,6 +167,8 @@ fn movement_system(
 
         external.impulse = movement_dir * movement.speed * time.delta_seconds();
     }
+
+    // TODO: add jumping for player
 }
 
 fn main() {

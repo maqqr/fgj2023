@@ -1,4 +1,8 @@
+use std::f32::consts::PI;
+
 use bevy::{prelude::{KeyCode, Vec3}, utils::HashMap};
+
+pub const FIELD_OF_VIEW: f32 = 80.0 * (PI / 180.0);
 
 pub const LEVEL_MIN: f32 = -100.0;
 pub const LEVEL_MAX: f32 = 100.0;
