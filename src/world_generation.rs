@@ -1,6 +1,8 @@
+use std::ops::ControlFlow;
+
+use crate::{shaders::CustomMaterial, utils::*, vec3i::Vec3i, *};
 use bevy::prelude::*;
-use rand::{rngs::ThreadRng, random};
-use crate::{*, vec3i::Vec3i, shaders::CustomMaterial, utils::*};
+use rand::{random, rngs::ThreadRng};
 
 pub struct WorldGenerator<'a> {
     pub cube_mesh: &'a Handle<Mesh>,
@@ -9,7 +11,7 @@ pub struct WorldGenerator<'a> {
     pub ground_material: &'a Handle<CustomMaterial>,
     pub rng: &'a mut ThreadRng,
     pub blockmap: &'a mut BlockMap,
-    pub height_chances: &'a [f32; 10],
+    pub height_chances: &'a [f32; 6],
 }
 
 impl WorldGenerator<'_> {
@@ -24,47 +26,99 @@ impl WorldGenerator<'_> {
     ) {
         for x in -1..=1 {
             for z in -1..=1 {
-                if x == 0 && z == 0 {
+                let next = *location + Vec3i::new(x, 0, z);
+                if self.blockmap.entities.contains_key(&next) {
                     return;
                 }
-                if generate_random_number(self.rng) > root_chance {
-                    let next = *location + Vec3i::new(x, 0, z);
-                    if self.blockmap.entities.contains_key(&next) {
-                        return;
-                    }
-                    else {
-                        self.spawn_root_block(i, &next, root_resource, commands);
-                        let trunk_chance = generate_random_number(self.rng);
-                        let mut height: i64 = 0;
-                        let mut total = 0.0;
-                        for (height_selected, partial_chance) in self.height_chances.iter().enumerate()  {
-                            total += partial_chance;
-                            if total > trunk_chance {
-                                height = height_selected as i64;
-                                break;
-                            }
-                        }
 
-                        if height > 0 {
-                            self.make_trunk(i, &next, root_resource, height, commands)
-                        }
-                        
-                    }
-
-                    self.root_around(i, &next, root_resource, root_chance + root_growth, root_growth, commands);
+                if generate_random_number(self.rng) >= root_chance {
+                    self.root_a_block(next, i, root_resource, commands, root_chance, root_growth)
+                } else {
+                    let new_root_resource = match root_resource {
+                        RootResource::Sap => RootResource::Wood,
+                        RootResource::Bark => return,
+                        RootResource::Wood => RootResource::Bark,
+                    };
+                    self.root_a_block(
+                        next,
+                        i,
+                        new_root_resource,
+                        commands,
+                        0.0,
+                        root_growth,
+                    );
                 }
             }
         }
     }
 
-    pub fn make_trunk(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, height: i64, commands: &mut Commands) {
+    fn root_a_block(
+        &mut self,
+        next: Vec3i,
+        i: i64,
+        root_resource: RootResource,
+        commands: &mut Commands,
+        root_chance: f32,
+        root_growth: f32,
+    ) {
+        if self.blockmap.entities.contains_key(&next) {
+            return;
+        }
+
+        self.spawn_root_block(i, &next, root_resource, commands);
+        let trunk_chance = generate_random_number(self.rng);
+        let mut passed: bool = false;
+        let mut total = 0.0;
+        for (_, partial_chance) in self.height_chances.iter().enumerate() {
+            total += partial_chance;
+            if total > trunk_chance {
+                passed = true;
+                break;
+            }
+        }
+        if !passed {
+            return;
+        }
+        self.root_around(
+            i,
+            &(next + Vec3i::new(0, 1, 0)),
+            root_resource,
+            root_chance + root_growth,
+            root_growth,
+            commands,
+        );
+
+        self.root_around(
+            i,
+            &next,
+            root_resource,
+            root_chance + root_growth,
+            root_growth,
+            commands,
+        );
+    }
+
+    pub fn make_trunk(
+        &mut self,
+        i: i64,
+        position: &Vec3i,
+        root_resource: RootResource,
+        height: i64,
+        commands: &mut Commands,
+    ) {
         // TODO: This trunk needs some thickness
         for y in 1..height {
             self.spawn_root_block(i, &(*position + (0, y, 0).into()), root_resource, commands);
         }
     }
 
-    pub fn spawn_root_block(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
+    pub fn spawn_root_block(
+        &mut self,
+        i: i64,
+        position: &Vec3i,
+        root_resource: RootResource,
+        commands: &mut Commands,
+    ) {
         let material = self.material_map.get(&root_resource).unwrap(); // this will crash if material is not found
         let block = self.spawn_block(position, material, commands);
 
@@ -86,7 +140,12 @@ impl WorldGenerator<'_> {
             .insert(Collider::cuboid(0.5, 0.5, 0.5));
     }
 
-    pub fn spawn_block(&mut self, position: &Vec3i, material: &Handle<CustomMaterial>, commands: &mut Commands) -> Entity {
+    pub fn spawn_block(
+        &mut self,
+        position: &Vec3i,
+        material: &Handle<CustomMaterial>,
+        commands: &mut Commands,
+    ) -> Entity {
         let entity = commands
             .spawn((
                 MaterialMeshBundle {
