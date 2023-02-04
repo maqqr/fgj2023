@@ -24,29 +24,29 @@ impl WorldGenerator<'_> {
         root_growth: f32,
         commands: &mut Commands,
     ) {
-        for x in -1..=1 {
-            for z in -1..=1 {
+        for x in -1..2 {
+            for z in -1..2 {
                 let next = *location + Vec3i::new(x, 0, z);
                 if self.blockmap.entities.contains_key(&next) {
                     return;
                 }
 
                 if generate_random_number(self.rng) >= root_chance {
-                    self.root_a_block(next, i, root_resource, commands, root_chance, root_growth)
+                    self.root_a_block(
+                        i,
+                        next,
+                        root_resource,
+                        root_chance + root_growth,
+                        root_growth,
+                        commands,
+                    )
                 } else {
                     let new_root_resource = match root_resource {
                         RootResource::Sap => RootResource::Wood,
                         RootResource::Bark => return,
                         RootResource::Wood => RootResource::Bark,
                     };
-                    self.root_a_block(
-                        next,
-                        i,
-                        new_root_resource,
-                        commands,
-                        0.0,
-                        root_growth,
-                    );
+                    self.root_around(i, &next, new_root_resource, 0.0, root_growth, commands);
                 }
             }
         }
@@ -54,12 +54,12 @@ impl WorldGenerator<'_> {
 
     fn root_a_block(
         &mut self,
-        next: Vec3i,
         i: i64,
+        next: Vec3i,
         root_resource: RootResource,
-        commands: &mut Commands,
         root_chance: f32,
         root_growth: f32,
+        commands: &mut Commands,
     ) {
         if self.blockmap.entities.contains_key(&next) {
             return;
@@ -79,14 +79,16 @@ impl WorldGenerator<'_> {
         if !passed {
             return;
         }
-        self.root_around(
-            i,
-            &(next + Vec3i::new(0, 1, 0)),
-            root_resource,
-            root_chance + root_growth,
-            root_growth,
-            commands,
-        );
+        if generate_random_number(self.rng) >= root_chance {
+            self.root_a_block(
+                i,
+                next + Vec3i::new(0, 1, 0),
+                root_resource,
+                root_chance + root_growth,
+                root_growth,
+                commands,
+            );
+        }
 
         self.root_around(
             i,
@@ -104,11 +106,24 @@ impl WorldGenerator<'_> {
         position: &Vec3i,
         root_resource: RootResource,
         height: i64,
+        rooting_height: i64,
+        root_chance: f32,
+        root_growth: f32,
         commands: &mut Commands,
     ) {
-        // TODO: This trunk needs some thickness
-        for y in 1..height {
-            self.spawn_root_block(i, &(*position + (0, y, 0).into()), root_resource, commands);
+        for y in 0..height {
+            if y <= rooting_height {
+                self.root_a_block(
+                    i,
+                    *position + (0, y, 0).into(),
+                    root_resource,
+                    root_chance,
+                    root_growth,
+                    commands,
+                );
+            } else {
+                self.spawn_root_block(i, &(*position + (0, y, 0).into()), root_resource, commands);
+            }
         }
     }
 
