@@ -26,8 +26,12 @@ impl Movement {
     fn new(speed: f32) -> Self { Self { speed } }
 }
 
-#[derive(Component)]
-struct Player;
+#[derive(Component, Default)]
+struct Player{
+    sap: i32,
+    bark: i32,
+    wood: i32,
+}
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)]
@@ -49,6 +53,11 @@ pub struct Root {
     id: i64,
     resource: RootResource,
     mineable: i32,
+}
+
+#[derive(Component)]
+pub struct Health {
+    health: i32
 }
 
 #[derive(Resource, Default)]
@@ -85,6 +94,28 @@ fn setup(
         BloomSettings { threshold: 0.6, knee: 0.2, intensity: 0.15, ..default() },
     ));
 
+    commands.spawn(
+        TextBundle::from_section(
+            "Sap: 0\nBark: 0\nWood: 0",
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 30.0,
+                color: Color::WHITE,
+
+            },
+        )
+        .with_style(Style {
+            margin: UiRect::all(Val::Px(5.0)),
+            position: UiRect {
+                left: Val::Px(210.0),
+                bottom: Val::Px(10.0),
+                ..default()
+            },
+            ..default()
+        })
+    );
+    
+
     let cube_material = custom_materials.add(shaders::CustomMaterial { time: 0.0, bending: 0.1, cam_position: Vec3::new(-2.0, 2.5, 5.0), color: Vec3::new(1.0, 0.0, 0.0) } );
     let cube_mesh = &meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_mesh = &meshes.add(Mesh::from(shape::Plane { size: 1.0 }));
@@ -94,11 +125,11 @@ fn setup(
         MaterialMeshBundle  {
             mesh: cube_mesh.clone(),
             material: cube_material.clone(),
-            transform: Transform::from_translation(Vec3::new(1.0, 1.0, 1.0)),
+            transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0)),
             ..default()
         },
         Movement::new(10.0),
-        Player,
+        Player::default(),
         Name::new("Cube"),
         RigidBody::Dynamic,
         Collider::ball(0.5),
@@ -113,13 +144,16 @@ fn setup(
 
     let ground_material = &custom_materials.add(Color::DARK_GRAY.into());
 
-    let heightChances = [0.05, 0.1, 0.2, 0.3, 0.2, 0.05, 0.03, 0.03, 0.02, 0.02];
+    let height_chances = [0.05, 0.1, 0.2, 0.3, 0.2, 0.05, 0.03, 0.03, 0.02, 0.02];
 
-    let mut gen = WorldGenerator { cube_mesh, plane_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap, height_chances: &heightChances };
+    let mut gen = WorldGenerator { cube_mesh, plane_mesh, material_map, ground_material, rng: &mut rng, blockmap: &mut blockmap, height_chances: &height_chances };
     for i in 0..500 {
+        let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
+        if gen.blockmap.entities.contains_key(&location) {
+            continue;
+        }
         let root_resource = random_resource(gen.rng);
 
-        let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
         gen.spawn_root_block(i, &location, root_resource, &mut commands);
         gen.root_around(i, &location, root_resource, 0.3, 0.05, &mut commands);
 
@@ -140,7 +174,7 @@ fn camera_system(
         center += tranform.translation;
         count += 1;
     }
-    center = Vec3::new(center.x / count as f32, 0.0, center.z / count as f32);
+    center = Vec3::new(center.x / count as f32, center.y / count as f32, center.z / count as f32);
 
     for (mut transform, mut camera) in query.iter_mut() {
         transform.translation = center + camera.offset;
@@ -173,6 +207,31 @@ fn movement_system(
     // TODO: add jumping for player
 }
 
+fn collision_system(
+    mut collision_events: EventReader<CollisionEvent>,
+    mut query: Query<(&mut Health, &Root)>,
+    mut player_query: Query<&mut Player>,
+    mut commands: Commands,
+) {
+    for collision_event in collision_events.iter() {
+        if let CollisionEvent::Started(first, second, _) = collision_event {
+            if let Ok((mut health, root)) = query.get_mut(*second) {
+                health.health -= 1;
+                if health.health <= 0 {
+                    commands.entity(*second).despawn();
+                    if let Ok(mut player) = player_query.get_mut(*first) {
+                        match root.resource {
+                            RootResource::Sap => player.sap += root.mineable,
+                            RootResource::Bark => player.bark += root.mineable,
+                            RootResource::Wood => player.wood += root.mineable,
+                        }
+                    }
+                }
+            }
+        }   
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -186,6 +245,7 @@ fn main() {
         .insert_resource(BlockMap::default())
         .add_startup_system(setup)
         .add_system(movement_system)
+        .add_system(collision_system)
         .add_system(camera_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .run();
