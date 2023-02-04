@@ -93,6 +93,7 @@ fn setup(
         Name::new("MainCamera"),
         MainCamera { bend_world: true, bending: DEFAULT_BENDING, offset: INITIAL_CAMERA_OFFSET },
         BloomSettings { threshold: 0.6, knee: 0.2, intensity: 0.15, ..default() },
+        UiCameraConfig { show_ui: true },
     ));
 
     let test_tex = asset_server.load("test.png");
@@ -108,7 +109,7 @@ fn setup(
         TextBundle::from_section(
             "Sap: 0\nBark: 0\nWood: 0",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load("monogram.ttf"),
                 font_size: 30.0,
                 color: Color::WHITE,
 
