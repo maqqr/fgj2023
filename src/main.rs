@@ -107,7 +107,7 @@ fn setup(
     });
     commands.spawn(
         TextBundle::from_section(
-            "Sap: 0\nBark: 0\nWood: 0",
+            format_ui_text(0,0,0),
             TextStyle {
                 font: asset_server.load("monogram.ttf"),
                 font_size: 30.0,
@@ -171,6 +171,10 @@ fn setup(
     gen.make_ground_plane(&mut commands);
 }
 
+fn format_ui_text(sap: i32, bark: i32, wood: i32) -> String {
+    format!("Sap: {sap}\nBark: {bark}\nWood:{wood}")
+}
+
 fn camera_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
@@ -218,16 +222,19 @@ fn movement_system(
 
 fn collision_system(
     mut collision_events: EventReader<CollisionEvent>,
-    mut query: Query<(&mut Health, &Root)>,
+    mut query: Query<(&mut Health, &Root, &BlockPosition)>,
     mut player_query: Query<&mut Player>,
+    mut blockmap: ResMut<BlockMap>,
     mut commands: Commands,
 ) {
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(first, second, _) = collision_event {
-            if let Ok((mut health, root)) = query.get_mut(*second) {
+            if let Ok((mut health, root, block_position)) = query.get_mut(*second) {
                 health.health -= 1;
                 if health.health <= 0 {
+                    blockmap.entities.remove_entry(&block_position.0);
                     commands.entity(*second).despawn();
+                    
                     if let Ok(mut player) = player_query.get_mut(*first) {
                         match root.resource {
                             RootResource::Sap => player.sap += root.mineable,
@@ -238,6 +245,41 @@ fn collision_system(
                 }
             }
         }   
+    }
+}
+
+fn collapse_trunks_system (
+    mut query: Query<(&mut BlockPosition, &mut Transform)>,
+    mut blockmap: ResMut<BlockMap>,
+) {
+    for (mut blocks, mut transform) in query.iter_mut() {
+        let old = blocks.0;
+        let new = Vec3i::new(blocks.0.x(), blocks.0.y() - 1, blocks.0.z());
+        if !blockmap.entities.contains_key(&new) {
+            blocks.0.set_y(blocks.0.y() - 1);
+            transform.translation = blocks.0.into();
+
+            let entity = blockmap.entities.get(&old);
+            match entity {
+                Some(entity) => {
+                    blockmap.entities.remove_entry(&old);
+                    blockmap.entities.insert(new, *entity);
+                }
+                None => panic!("Wheres the freaking entity?!?"),
+            }
+
+        }
+    }
+}
+
+fn ui_count_system (
+    mut query: Query<&mut Text>, 
+    player_query: Query<&Player, Changed<Player>>,
+) {
+    for player in &player_query {
+        for mut text in query.iter_mut() {
+            text.sections.first_mut().unwrap().value = format_ui_text(player.sap, player.bark, player.wood)
+        }
     }
 }
 
@@ -254,8 +296,10 @@ fn main() {
         .insert_resource(BlockMap::default())
         .add_startup_system(setup)
         .add_system(movement_system)
+        .add_system(collapse_trunks_system)
         .add_system(collision_system)
         .add_system(camera_system)
+        .add_system(ui_count_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .run();
 }
