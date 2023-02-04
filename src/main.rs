@@ -449,6 +449,8 @@ fn damage_system(
         if let Ok(mut health) = query.get_mut(ev.target_entity) {
             health.health -= ev.amount;
 
+            camera_query.single_mut().shake_intensity += 0.02;
+
             let root_tuple = root_query.get(ev.target_entity);
 
             if let Ok((root, _)) = root_tuple {
@@ -461,7 +463,7 @@ fn damage_system(
 
             if health.health <= 0 {
                 commands.entity(ev.target_entity).despawn();
-                camera_query.single_mut().shake_intensity = 0.5;
+                camera_query.single_mut().shake_intensity += 0.1;
 
                 if let Ok((root, block_pos)) = root_tuple {
                     blockmap.entities.remove_entry(&block_pos.0);
@@ -564,10 +566,6 @@ fn player_attack_system(
                     // Callback called on each collider hit by the ray.
                     let hit_point = intersection.point;
                     let hit_normal = intersection.normal;
-                    println!(
-                        "Entity {:?} hit at point {} with normal {}",
-                        entity, hit_point, hit_normal
-                    );
 
                     // Check if player hit anything that has Health
                     if let Ok(enemy_entity) = enemy_query.get_mut(entity) {
