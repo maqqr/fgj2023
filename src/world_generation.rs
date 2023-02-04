@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::rngs::ThreadRng;
+use rand::{rngs::ThreadRng, random};
 use crate::{*, vec3i::Vec3i, shaders::CustomMaterial, utils::*};
 
 pub struct WorldGenerator<'a> {
@@ -9,6 +9,7 @@ pub struct WorldGenerator<'a> {
     pub ground_material: &'a Handle<CustomMaterial>,
     pub rng: &'a mut ThreadRng,
     pub blockmap: &'a mut BlockMap,
+    pub height_chances: &'a [f32; 10],
 }
 
 impl WorldGenerator<'_> {
@@ -31,24 +32,42 @@ impl WorldGenerator<'_> {
                     if self.blockmap.entities.contains_key(&next) {
                         return;
                     }
-                    self.spawn_root_block(i, &next, root_resource, commands);
+                    if self.blockmap.entities.contains_key(&next) {
+                        
+                    } else {
+                        self.spawn_root_block(i, &next, root_resource, commands);
+                        let trunk_chance = generate_random_number(self.rng);
+                        let mut height: i64 = 0;
+                        let mut total = 0.0;
+                        for (height_selected, partial_chance) in self.height_chances.iter().enumerate()  {
+                            total += partial_chance;
+                            if total > trunk_chance {
+                                height = height_selected as i64;
+                                break;
+                            }
+                        }
+
+                        if height > 0 {
+                            self.make_trunk(i, &next, root_resource, height, commands)
+                        }
+                        
+                    }
+
+                   
                     self.root_around(i, &next, root_resource, root_chance + root_growth, root_growth, commands);
                 }
             }
         }
     }
 
-    pub fn make_trunk(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
+    pub fn make_trunk(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, height: i64, commands: &mut Commands) {
         // TODO: This trunk needs some thickness
-        for y in 0..12 {
+        for y in 1..height {
             self.spawn_root_block(i, &(*position + (0, y, 0).into()), root_resource, commands);
         }
     }
 
     pub fn spawn_root_block(&mut self, i: i64, position: &Vec3i, root_resource: RootResource, commands: &mut Commands) {
-        if self.blockmap.entities.contains_key(position) {
-            return;
-        }
         let material = self.material_map.get(&root_resource).unwrap(); // this will crash if material is not found
         let block = self.spawn_block(position, material, commands);
         commands
