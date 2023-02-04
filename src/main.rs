@@ -7,7 +7,8 @@ mod utils;
 mod vec3i;
 mod world_generation;
 
-use std::f32::consts::PI;
+use std::{f32::consts::PI, fs::File};
+use std::io::prelude::*;
 
 use bevy::{
     audio::{self, Source},
@@ -250,7 +251,7 @@ fn setup(
 
     let ground_material = &custom_materials.add(CustomMaterial::new(Color::DARK_GRAY, &ground_tex));
 
-    let height_chances = [0.05, 0.1, 0.2, 0.3, 0.2, 0.05, 0.03, 0.03, 0.02, 0.02];
+    let height_chances = [0.15, 0.1, 0.2, 0.3, 0.2, 0.05];
 
     let mut gen = WorldGenerator {
         cube_mesh,
@@ -266,12 +267,12 @@ fn setup(
         if gen.blockmap.entities.contains_key(&location) {
             continue;
         }
-        let root_resource = random_resource(gen.rng);
+        let root_resource = RootResource::Sap;
 
         gen.spawn_root_block(i, &location, root_resource, &mut commands);
-        gen.root_around(i, &location, root_resource, 0.3, 0.05, &mut commands);
+        gen.root_around(i, &location, root_resource, 0.3, 0.15, &mut commands);
 
-        gen.make_trunk(i, &location, root_resource, 12, &mut commands);
+        gen.make_trunk(i, &location, root_resource, 18, &mut commands);
     }
     gen.make_ground_plane(&mut commands);
 
@@ -299,6 +300,12 @@ fn setup(
             Name::new("Bush"),
         ));
     }
+
+    // let mut file = File::create("foo.txt");
+    // match file {
+    //     Ok(file) => write!(&file, "{:?}", gen.blockmap.entities),
+    //     Err(_) => panic!(),
+    // };
 }
 
 fn format_ui_text(sap: i32, bark: i32, wood: i32) -> String {
@@ -502,7 +509,7 @@ fn collapse_trunks_system(
                     blockmap.entities.insert(new, entity);
                 }
                 None => {
-                    panic!("Wheres the freaking entity?!?");
+                    print!("Wheres the freaking entity?!?");
                 }
             }
         }
