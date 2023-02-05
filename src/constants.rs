@@ -7,7 +7,7 @@ pub const FIELD_OF_VIEW: f32 = 80.0 * (PI / 180.0);
 pub const LEVEL_MIN: f32 = -80.0;
 pub const LEVEL_MAX: f32 = 80.0;
 
-pub const INITIAL_CAMERA_OFFSET: Vec3 = Vec3::new(0.0, 5.0, 5.0);
+pub const INITIAL_CAMERA_OFFSET: Vec3 = Vec3::new(0.0, 4.0, 4.0);
 
 pub const DEFAULT_BENDING: f32 = 0.03;
 
