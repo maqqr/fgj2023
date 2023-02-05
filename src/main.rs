@@ -240,7 +240,7 @@ fn setup(
             material: player_material,
             transform: Transform::from_translation(Vec3::new(1.0, 15.0, 1.0))
                 .with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0))
-                .with_scale(Vec3::new(1.0, 1.0, 1.5)),
+                .with_scale(Vec3::new(1.0, 1.0, 2.0)),
             ..default()
         },
         Movement::new(30.0),
