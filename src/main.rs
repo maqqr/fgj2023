@@ -17,7 +17,6 @@ use bevy::{
 };
 use bevy_rapier3d::prelude::*;
 use constants::*;
-use rand::rngs::ThreadRng;
 use shaders::CustomMaterial;
 use utils::*;
 use vec3i::*;
@@ -247,7 +246,7 @@ fn setup(
     let material_map: &HashMap<RootResource, Handle<CustomMaterial>> = &[
         (
             RootResource::Sap,
-            custom_materials.add(CustomMaterial::new(Color::rgb(1.0, 1.0, 10.0), &sap_tex)),
+            custom_materials.add(CustomMaterial::new(Color::rgb(10.0, 5.0, 1.0), &sap_tex)),
         ),
         (
             RootResource::Bark,
@@ -289,15 +288,7 @@ fn setup(
     gen.make_ground_plane(&mut commands);
 
     // Make random bushes
-    let bush_material = custom_materials.add(shaders::CustomMaterial {
-        time: 0.0,
-        bending: 0.1,
-        cam_position: Vec3::new(-2.0, 2.5, 5.0),
-        color: Vec3::new(1.0, 1.0, 1.0),
-        texture: asset_server.load("bush.png"),
-        player_position: Vec3::ZERO,
-        viewport_size: Vec2::ZERO,
-    });
+    let bush_material = custom_materials.add(CustomMaterial::new(Color::WHITE, &asset_server.load("bush.png")));
     for _ in 0..350 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
         commands.spawn((
@@ -309,6 +300,24 @@ fn setup(
                     .with_scale(Vec3::new(1.0, 1.0, 1.1)),
                 ..default()
             },
+            Name::new("Bush"),
+        ));
+    }
+
+    // Make random branches
+    let bush_material = custom_materials.add(CustomMaterial::new(Color::WHITE, &asset_server.load("branch.png")));
+    for _ in 0..350 {
+        let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64) + (0, 10, 0).into();
+        commands.spawn((
+            MaterialMeshBundle {
+                mesh: plane_mesh.clone(),
+                material: bush_material.clone(),
+                transform: Transform::from_translation(location.into())
+                    .with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0))
+                    .with_scale(Vec3::new(10.0, 1.0, 7.0)),
+                ..default()
+            },
+            bevy::render::view::NoFrustumCulling,
             Name::new("Bush"),
         ));
     }
@@ -494,7 +503,7 @@ fn damage_system(
 }
 
 fn collision_system(
-    root_query: Query<(&Root)>,
+    root_query: Query<&Root>,
     mut collision_events: EventReader<CollisionEvent>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
