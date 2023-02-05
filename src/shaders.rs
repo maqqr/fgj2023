@@ -57,7 +57,7 @@ fn update_shaders(
     windows: Res<Windows>,
 ) {
     let window = windows.get_primary().unwrap();
-    let win_size = Vec2::new(window.width(), window.height());
+    let win_size = Vec2::new(window.width() * window.scale_factor() as f32, window.height() * window.scale_factor() as f32);
 
     let mut player_pos =
         if let Ok(player_t) = player_query.get_single() {

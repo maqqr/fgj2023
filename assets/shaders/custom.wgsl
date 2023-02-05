@@ -122,8 +122,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     diff.g *= texCol.g;
     diff.b *= texCol.b;
 
-    //var vig = vignette(viewport.xy);
-    var result = mix(ambient + diff, vec3<f32>(0.02, 0.02, 0.01), fog);
+    var vig = vignette(viewport.xy);
+    var result = mix(ambient + diff, vec3<f32>(0.02, 0.02, 0.01), fog) * vig;
 
     return vec4(result, 1.0);
 
