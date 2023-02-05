@@ -320,7 +320,7 @@ fn setup(
                 material: bush_material.clone(),
                 transform: Transform::from_translation(location.into())
                     .with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0))
-                    .with_scale(Vec3::new(1.0, 1.0, 1.1)),
+                    .with_scale(Vec3::new(1.2, 1.0, 1.2)),
                 ..default()
             },
             Health{health:1},
@@ -719,7 +719,10 @@ fn particle_system(
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor { title: "Sap from the roots".to_string(), ..default() },
+            ..default()
+        }))
         .add_plugin(MaterialPlugin::<shaders::CustomMaterial>::default())
         // .add_plugin(bevy_editor_pls::EditorPlugin)
         // .add_plugin(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
