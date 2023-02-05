@@ -97,6 +97,12 @@ struct AnimEvent {
     is_strike: bool,
 }
 
+struct ParticleEvent {
+    start: Vec3,
+    vel: Vec3,
+    col: Color,
+}
+
 #[derive(Resource, Default)]
 pub struct BlockMap {
     entities: HashMap<Vec3i, Entity>,
@@ -118,6 +124,16 @@ struct Particle {
     lifetime_left: f32,
     velocity: Vec3,
 }
+
+#[derive(Resource, Default)]
+struct ParticleHandles {
+    mesh: Handle<Mesh>,
+    bark_mat: Handle<CustomMaterial>,
+    wood_mat: Handle<CustomMaterial>,
+}
+
+#[derive(Component)]
+struct MaxVelocity(f32);
 
 fn setup(
     mut commands: Commands,
@@ -149,7 +165,7 @@ fn setup(
             bend_world: true,
             bending: DEFAULT_BENDING,
             offset: INITIAL_CAMERA_OFFSET,
-            shake_intensity: 10.0,
+            shake_intensity: 0.0,
         },
         BloomSettings {
             threshold: 0.6,
@@ -238,6 +254,7 @@ fn setup(
         Collider::ball(0.5),
         ExternalImpulse::default(),
         Velocity::default(),
+        MaxVelocity(8.0),
         CustomDamping(0.01), // Smaller value = stronger effect
         LockedAxes::ROTATION_LOCKED,
         Direction::default(),
@@ -259,6 +276,12 @@ fn setup(
     ]
     .into_iter()
     .collect();
+
+    commands.insert_resource(ParticleHandles {
+        mesh: cube_mesh.clone(),
+        bark_mat: custom_materials.add(CustomMaterial::new(Color::WHITE, &ground_tex)),
+        wood_mat: custom_materials.add(CustomMaterial::new(Color::WHITE, &ground_tex)),
+    });
 
     let ground_material = &custom_materials.add(CustomMaterial::new(Color::WHITE, &ground_tex));
 
@@ -289,7 +312,7 @@ fn setup(
 
     // Make random bushes
     let bush_material = custom_materials.add(CustomMaterial::new(Color::WHITE, &asset_server.load("bush.png")));
-    for _ in 0..350 {
+    for _ in 0..250 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64);
         commands.spawn((
             MaterialMeshBundle {
@@ -308,7 +331,7 @@ fn setup(
 
     // Make random branches
     let bush_material = custom_materials.add(CustomMaterial::new(Color::WHITE, &asset_server.load("branch.png")));
-    for _ in 0..350 {
+    for _ in 0..400 {
         let location = random_location(gen.rng, LEVEL_MIN as i64, LEVEL_MAX as i64) + (0, 10, 0).into();
         commands.spawn((
             MaterialMeshBundle {
@@ -372,6 +395,7 @@ fn movement_system(
     time: Res<Time>,
     mut query: Query<(&mut ExternalImpulse, &mut Direction, &Movement, &Transform, &mut Player)>,
     not_player_query: Query<Entity, Without<Player>>,
+    mut max_vel_query: Query<(&mut Velocity, &MaxVelocity)>,
     mut custom_materials: ResMut<Assets<CustomMaterial>>,
     rapier_context: Res<RapierContext>,
     mut anim_events: EventWriter<AnimEvent>,
@@ -394,6 +418,12 @@ fn movement_system(
         );
         hit
     };
+
+    for (mut vel, max) in max_vel_query.iter_mut() {
+        if vel.linvel.length() > max.0 {
+            vel.linvel = vel.linvel.normalize() * max.0;
+        }
+    }
 
     for (mut external, mut dir, movement, transform, mut player) in query.iter_mut() {
         // Sum vectors from directions that are pressed
@@ -453,7 +483,8 @@ fn custom_damping_system(
 
 fn damage_system(
     mut damage_events: EventReader<DamageEvent>,
-    mut query: Query<&mut Health>,
+    mut particle_events: EventWriter<ParticleEvent>,
+    mut query: Query<(&mut Health, &Transform)>,
     root_query: Query<(&Root, &BlockPosition)>,
     mut player_query: Query<&mut Player>,
     mut camera_query: Query<&mut MainCamera>,
@@ -463,8 +494,10 @@ fn damage_system(
     mut commands: Commands,
 ) {
     for ev in damage_events.iter() {
-        if let Ok(mut health) = query.get_mut(ev.target_entity) {
+        if let Ok((mut health, target_transform)) = query.get_mut(ev.target_entity) {
             health.health -= ev.amount;
+
+            particle_events.send(ParticleEvent { start: target_transform.translation, vel: Vec3::ZERO, col: Color::WHITE });
 
             camera_query.single_mut().shake_intensity += 0.02;
 
@@ -644,8 +677,44 @@ fn camera_shake_system(mut query: Query<&mut MainCamera>, time: Res<Time>) {
     }
 }
 
-fn particle_system(mut query: Query<(&mut Particle, &mut Transform)>) {
+fn particle_system(
+    mut query: Query<(Entity, &mut Particle, &mut Transform)>,
+    mut particle_events: EventReader<ParticleEvent>,
+    particle_handles: Res<ParticleHandles>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    let mut rng = rand::thread_rng();
+    for ev in particle_events.iter() {
 
+        let mut initial_vel = generate_random_unit_vec(&mut rng) * 2.0;
+        initial_vel.y = initial_vel.y.abs() * 4.0;
+
+        commands.spawn((
+            MaterialMeshBundle {
+                mesh: particle_handles.mesh.clone(),
+                material: particle_handles.wood_mat.clone(),
+                transform: Transform::from_translation(ev.start)
+                    .with_rotation(Quat::from_euler(EulerRot::XYZ, 0.5 * PI, PI, 0.0))
+                    .with_scale(Vec3::new(0.1, 0.1, 0.1)),
+                ..default()
+            },
+            Particle {
+                lifetime_left: 3.0,
+                velocity: initial_vel,
+            },
+        ));
+    }
+
+    for (entity, mut part, mut transform) in query.iter_mut() {
+        transform.translation += part.velocity * time.delta_seconds();
+
+        part.velocity += Vec3::new(0.0, -8.0, 0.0) * time.delta_seconds();
+
+        if transform.translation.y < -2.0 {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 fn main() {
@@ -659,9 +728,11 @@ fn main() {
         .add_plugin(shaders::ShaderPlugin)
         .add_event::<DamageEvent>()
         .add_event::<AnimEvent>()
+        .add_event::<ParticleEvent>()
         .insert_resource(ClearColor(Color::rgb(27.0 / 255.0, 28.0 / 255.0, 17.0 / 255.0)))
         .insert_resource(BlockMap::default())
         .insert_resource(AudioHandles::default())
+        .insert_resource(ParticleHandles::default())
         .add_startup_system(setup)
         .add_system(movement_system)
         .add_system(collapse_trunks_system)
@@ -673,6 +744,7 @@ fn main() {
         .add_system(damage_system)
         .add_system(animation_system)
         .add_system(camera_shake_system)
+        .add_system(particle_system)
         .register_type::<MainCamera>() // Only needed for in-game inspector
         .register_type::<BlockPosition>()
         .run();
